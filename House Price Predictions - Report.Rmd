@@ -1,25 +1,66 @@
 ---
 title: "House Price Predictions - Report"
 author: "Christine Utendorf"
-date: "24 April 2019"
+date: "23 May 2019"
 output: html_document
 ---
 
-## Library loading
+## 0. Sources loading
+First all needed libraries are loaded. This includes data.table, DT and lubridate to work with datasets (that also include dates), ggplot2 and plotly for data visualization purposes and caret and ranger for the machine learning models.
+
+All self-programed functions such as transforming or splitting a dataset are saved within the R notbook called functions.
+
+Furthermore, several metrics that are not default for machine learning R packages are created as functions within the R notebook metrics. 
 ```{r, warning=FALSE, message=FALSE}
-source('functions/libraries.R')
-source('functions/functions.R')
+source('notebooks/libraries.R')
+source('notebooks/functions.R')
+source('notebooks/metrics.R')
 ```
 
-## Data loading
+## 1. Data sets
+
+### 1.1 Data loading
+Two data sets are provided. Both cover house sales within King County, USA and each row represents a single house sale between May 2014 and May 2015. While the train data set includes the price for each sale the test data set does not. Thus we are provided with a "blind" test data set. The train data set will be used to train and tune the machine learning model, while the test data set will be used to make price predictions based on the provided data and its features.
 ```{r}
 raw_train_data<-fread('data/house_price_train.csv', stringsAsFactors = F)
-
 raw_test_data<-fread('data/house_price_test.csv', stringsAsFactors = F)
-
-dataset = f_split(raw_train_data, raw_test_data, testsize = 0.2, seed = 1)
-
-str(dataset$train)
-str(dataset$holdout)
-str(dataset$test)
 ```
+
+### 1.2 Data description
+Consequently the train data set includes 21 columns while the test data set has only 20 columns. While the train data has 17,277 house sales, the test data has 4,320 house sales. Both data sets actually come from a complete data set that can be found on Kaggle (https://www.kaggle.com/harlfoxem/housesalesprediction). However, this data set was probably then randomly splitted into train and test data using a 80:20 split and then for the test data set the prices were removed. Thus both data sets share the same 19 house features and each sale is identfied with a numeric id.
+Most of the features are directly related to the house properties such as number of bedrooms, squarefeet, waterfront, floors etc. In addition, we have information of the building year of the house and the lastest renovation (if there was any). There are also features that try to capture the overall condition of the house such as grade and condition. However, these two variables are likely to capture the same information and thus one might be redundant. Furthermore location data is provided as well as how often the place was visited. Overall, the dataset covers the most important house features that are also usually used on house sale websites.
+```{r, warning=FALSE, message=FALSE}
+str(raw_train_data)
+str(raw_test_data)
+datatable(raw_train_data)
+```
+
+##### NA detection
+Overall, we see that the data does not have any missing values, which is an imporant aspect in terms of data quality.
+```{r}
+sum(is.na(raw_train_data))
+sum(is.na(raw_test_data))
+```
+
+
+### 1.3 Data preparation
+By looking at the data types of the several features, we can see that some of them are not in the correct format. Thus with the self-programmed function prep_data several datatypes for both data sets are changed:
+  - date: chr to date
+  - waterfront: int to logical (boolean)
+  - zip code: int to factor
+  - remaining integer variables were changed to numeric ones
+The function is specifically programmed for these data sets and are applied to both train and test. The transformed data sets are then saved within a new variable.
+
+##### Train data
+```{r}
+prep_train_data <- prep_data(raw_train_data)
+str(prep_train_data)
+```
+##### Test data
+```{r}
+prep_test_data <- prep_data(raw_test_data)
+str(prep_test_data)
+```
+
+### 1.4 Data visualization
+One of the most important things in machine learning is to get familiar with the data set. Data exploration and in particular data visualization is very helpful in this regard.
