@@ -8,12 +8,15 @@ data$date<-as.Date(data$date, "%m/%d/%Y")
 # Transforming zip code in factor format
 data$zipcode<-as.factor(data$zipcode)
 
-# Transforming boolean waterfront column in logical format
-data$waterfront<-as.logical(data$waterfront)
+# Creating variable to show if there was a renovation before
+data$renovated <- ifelse(data$yr_renovated == 0, 0, 1)
 
-# Transform all integer columns into numeric ones
-data[ , names(data)[sapply(data, is.integer)]:=lapply(.SD,as.numeric),
-                .SDcols = sapply(data, is.integer)]
+# Creating variable if house has a basement
+data$basement <- ifelse(data$sqft_basement == 0, 0, 1)
+
+# Creating variable that shows the age of the house
+data$houseage <- year(Sys.time()) - data$yr_built
+
 return(data)
 }
 

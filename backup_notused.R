@@ -14,3 +14,36 @@ raw_test_data[ , names(raw_test_data)[sapply(raw_test_data, is.integer)]:=lapply
 
 
 dataset = f_split(raw_train_data, raw_test_data, testsize = 0.2, seed = 1)
+
+
+
+# Transform all integer columns into numeric ones
+data[ , names(data)[sapply(data, is.integer)]:=lapply(.SD,as.numeric),
+                .SDcols = sapply(data, is.integer)]
+
+
+#```{r}
+options(repr.plot.width = 14, repr.plot.height = 14)
+
+corr_data2 <- data.frame(prep_train_data)
+
+corr_disc <- ggpairs(corr_data2[,c("price", discVar)]) +
+  theme_minimal() +
+  theme(text = element_text(face = "bold"),
+        axis.text.x = element_text(angle = 90),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank())
+corr_disc
+#```
+
+#```{r}
+options(repr.plot.width = 14, repr.plot.height = 14)
+
+corr_cont <- ggpairs(corr_data2[,c("price", contVar)]) +
+  theme_minimal() +
+  theme(text = element_text(face = "bold"),
+        axis.text.x = element_text(angle = 90),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank())
+corr_cont
+#```
