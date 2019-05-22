@@ -1,0 +1,30 @@
+---
+title: "House Price Predictions - Predicitive Model (Part2)"
+author: "Christine Utendorf"
+date: "23 May 2019"
+output: html_document
+---
+
+## 0. Sources and data loading
+
+#### Notebook loading
+Besides several libraries used for data exploration and visualization, the library loding also includes caret and ranger for the machine learning models.
+
+All self-programed functions such as transforming or splitting a dataset are saved within the R notbook called functions.
+
+Furthermore, several metrics that are not default for machine learning R packages are created as functions within the R notebook metrics. 
+```{r, warning=FALSE, message=FALSE}
+source('notebooks/libraries.R')
+source('notebooks/functions.R')
+source('notebooks/metrics.R')
+```
+
+The work is divided into two R markdowns. The first one only focusses on data exploration and preparation and the second one on modeling. This is due to the fact that each markdown takes some while to be created and with this division the whole data exploration does not need to be computed again while modeling.
+
+#### Data loading
+From the data preparation and exploration part the prepared train and test data sets are loaded.
+
+```{r}
+train_data<-fread('data/data_train_ready.csv', stringsAsFactors = F)
+test_data<-fread('data/data_test_ready.csv', stringsAsFactors = F)
+```

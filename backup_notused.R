@@ -17,8 +17,6 @@ dataset = f_split(raw_train_data, raw_test_data, testsize = 0.2, seed = 1)
 
 
 
-# Transform all integer columns into numeric ones
-data[ , names(data)[sapply(data, is.integer)]:=lapply(.SD,as.numeric),
-                .SDcols = sapply(data, is.integer)]
+
 
 

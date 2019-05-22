@@ -1,4 +1,4 @@
-### Preparing the data set ###
+### Preparing the data set - Step 1 ###
 
 prep_data <- function(data){
 
@@ -18,6 +18,32 @@ data$basement <- ifelse(data$sqft_basement == 0, 0, 1)
 data$houseage <- year(Sys.time()) - data$yr_built
 
 return(data)
+}
+
+### Preparing the data set - Step 2 (Low correlation) ###
+
+low_correlation <- function(data){
+  
+  data$condition = NULL
+  data$houseage = NULL
+  data$sqft_lot15 = NULL
+  
+  return(data)
+}
+
+### Preparing the data set - Step 3 (Final data types) ###
+
+data_types <- function(data){
+  
+  # Transform into factor variables
+  data[,c("bedrooms", "floors", "waterfront","view","renovated", "basement")] <- lapply(data[,c("bedrooms", "floors", "waterfront","view","renovated", "basement")], as.factor) 
+  
+  
+  # Transform all integer columns into numeric ones
+  data[ , names(data)[sapply(data, is.integer)]:=lapply(.SD,as.numeric),
+        .SDcols = sapply(data, is.integer)]
+  
+  return(data)
 }
 
 ### Splitting into train and test data ###
