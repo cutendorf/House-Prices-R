@@ -435,14 +435,14 @@ corr_cont
 ### 1.5 Data cleaning
 
 #### 1.5.1 Questionable data entries
-We have seen before that there were several data points with unusual data. For example, the house with 33 bedrooms. It is the only one that has more than 15 bedrooms and since it has only one floor it is highly unlikely that 33 bedrooms is actually correct. Especially for such a low price. Thus this row is excluded from the dataset. 
+We have seen before that there were several data points with unusual data. For example, the house with 33 and the other with 11 bedrooms. Both do not seem to be correct and thus are excluded.
 
 Eventhough it seemed in the histograms that there are houses with 0 bathrooms. However, there is none with 0 bathrooms but several with less than 1 (e.g. 0.5 or 0.75). This could actually be based on the limited things within a bathroom (e.g. no shower). These values might be correct and thus the rows are not excluded.
 
 ```{r}
-show <- prep_train_data[which(prep_train_data$bedrooms > 15),]
+show <- prep_train_data[which(prep_train_data$bedrooms > 10),]
 datatable(show)
-prep_train_data <- prep_train_data[-which(prep_train_data$bedrooms == 33),]
+prep_train_data <- prep_train_data[-which(prep_train_data$bedrooms > 10),]
 
 show<- prep_train_data[which(prep_train_data$bathrooms < 1),]
 datatable(show)
@@ -466,10 +466,14 @@ prep_test_data2 <- low_correlation(prep_test_data)
 
 #### 1.5.3 Data type
 As said before it makes sense to turn several variables into factor features. The remaining numerical features that are still saved as integer are then turned into numeric features.
+The next step will be dummy encoding but we already save now a not encoded data set.
 
 ```{r, warning=FALSE, message=FALSE}
 prep_train_data3 <- data_types(prep_train_data2)
 prep_test_data3 <- data_types(prep_test_data2)
+
+fwrite(prep_train_data3, 'data/data_train_ready.csv', row.names = F)
+fwrite(prep_test_data3, 'data/data_test_ready.csv', row.names = F)
 ```
 
 #### 1.5.4 Dummy encoding of factor
@@ -487,7 +491,7 @@ total_data <- rbind(prep_train_data3, prep_test_data3)
 
 ##### Dummy encode
 ```{r}
-total_encoded<-caret::dummyVars(formula= ~.- id - date, data = total_data, fullRank=T,sep = "_")
+total_encoded<-caret::dummyVars(formula= ~.- id - date, data = total_data, fullRank=F,sep = "_")
 total_encoded<-data.table(predict(total_encoded, newdata = total_data))
 
 names(total_encoded)<-gsub('-','_',names(total_encoded))
@@ -500,13 +504,19 @@ str(total_encoded)
 ```
 
 ##### Split data sets and save in csv
-At the end the data sets are split again based on the classification before on train and test. The train dataset has still 17,276 rows (one row deleted due to too many bedrooms) and the test 4,320 rows.
+At the end the data sets are split again based on the classification before on train and test. The train dataset has still 17,275 rows (two row deleted due to too many bedrooms) and the test 4,320 rows. Furthermore the sum of prices for the train data set before and the encoded one is the same.
 
 ```{r, warning=FALSE, message=FALSE}
 data_train_ready <- subset(total_encoded, datasettrain==1)
 data_test_ready <- subset(total_encoded, datasettrain==0)
 data_test_ready$price <- NULL
+data_test_ready$datasettrain <- NULL
+data_train_ready$datasettrain <- NULL
+data_test_ready$datasettest <- NULL
+data_train_ready$datasettest <- NULL
 
-fwrite(data_train_ready, 'data/data_train_ready.csv', row.names = F)
-fwrite(data_test_ready, 'data/data_test_ready.csv', row.names = F)
+sum(data_train_ready$price) == sum(prep_train_data$price)
+
+fwrite(data_train_ready, 'data/data_train_dummy.csv', row.names = F)
+fwrite(data_test_ready, 'data/data_test_dummy.csv', row.names = F)
 ```

@@ -36,7 +36,7 @@ low_correlation <- function(data){
 data_types <- function(data){
   
   # Transform into factor variables
-  data[,c("bedrooms", "floors", "waterfront","view","renovated", "basement")] <- lapply(data[,c("bedrooms", "floors", "waterfront","view","renovated", "basement")], as.factor) 
+  data[,c("bedrooms", "floors", "view")] <- lapply(data[,c("bedrooms", "floors", "view")], as.factor) 
   
   
   # Transform all integer columns into numeric ones
@@ -69,3 +69,4 @@ f_split<-function(data, test, testsize = 0.2, seed = 1){
   
   return(whole_data)
 }
+

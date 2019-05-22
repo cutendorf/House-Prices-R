@@ -8,7 +8,7 @@ output: html_document
 ## 0. Sources and data loading
 
 #### Notebook loading
-Besides several libraries used for data exploration and visualization, the library loding also includes caret and ranger for the machine learning models.
+Besides several libraries used for data exploration and visualization, the library loding also includes MASS, caret and ranger for the machine learning models.
 
 All self-programed functions such as transforming or splitting a dataset are saved within the R notbook called functions.
 
@@ -25,6 +25,60 @@ The work is divided into two R markdowns. The first one only focusses on data ex
 From the data preparation and exploration part the prepared train and test data sets are loaded.
 
 ```{r}
-train_data<-fread('data/data_train_ready.csv', stringsAsFactors = F)
-test_data<-fread('data/data_test_ready.csv', stringsAsFactors = F)
+train_data<-fread('data/data_train_dummy.csv', stringsAsFactors = F)
+test_data<-fread('data/data_test_dummy.csv', stringsAsFactors = F)
+```
+
+#### Splitting dataset
+Since our test set is blind and we want to compare models when tuning them, a list object is created that not only stores the test data set but also a train data set (80% of train data) and a holdout set (20% of train data). Furthermore our target variable price is set and all integer variables are turned into numerical ones.
+
+We store the id and the price data for the holdout in a seperate data set in order to calculate later on the metrics. Furthermore also the ids of the blind test set are stored in a seperate dataset to later on store the final predictions for submission.
+
+Date and id and then excluded from all datasets since there were severe problems when trying to predict with the models.
+
+```{r}
+whole_data = f_split(train_data, test_data, testsize = 0.2, seed = 1)
+whole_data<-lapply(whole_data, function(x){
+  return(x[, which(sapply(x, is.integer)):=lapply(.SD, as.numeric), .SDcols=sapply(x,is.integer)])
+})
+
+#df_test<-whole_data$holdout[,c("id", "price")]
+df_test<-whole_data$holdout[, .(id=1:.N, price)]
+df_pred<-whole_data$test[,c("id")]
+
+whole_data$train$id = NULL
+whole_data$train$date = NULL
+whole_data$test$id = NULL
+whole_data$test$date = NULL
+whole_data$holdout$id = NULL
+whole_data$holdout$date = NULL
+
+formula<-as.formula(price~.)
+```
+
+
+## 1. Linear model
+To start with a linear model is used to predict the continous variable.
+
+```{r}
+lm <- lm(formula = formula, 
+                 data=whole_data$train)
+summary(lm)
+
+test_lm<-predict(lm, newdata = whole_data$holdout)
+
+df_test<-cbind(df_test, test_lm)
+
+str(df_test)
+
+ggplot(melt(df_test, id.vars = 'id'), aes(x=id,y=value, colour=variable))+
+  geom_point(alpha=0.65)+ylim(0,4000000)+xlab('')+ylab('$')+
+  ggtitle('Linear Regression - Test prediction')+
+  scale_colour_manual(values = c('black','red'))
+
+
+rmse_lm<-rmse(real=whole_data$holdout$price, predicted = test_lm)
+mae_lm<-mae(real=whole_data$holdout$price, predicted = test_lm)
+mape_lm<-mape(real=whole_data$holdout$price, predicted = test_lm)
+mape_lm
 ```
