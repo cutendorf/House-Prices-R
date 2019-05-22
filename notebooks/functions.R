@@ -4,6 +4,8 @@ prep_data <- function(data){
 
 # Transforming date column in actual date format
 data$date<-as.Date(data$date, "%m/%d/%Y")
+data$month <- month(data$date)
+data$date <- NULL
 
 # Transforming zip code in factor format
 data$zipcode<-as.factor(data$zipcode)
@@ -27,6 +29,7 @@ low_correlation <- function(data){
   data$condition = NULL
   data$houseage = NULL
   data$sqft_lot15 = NULL
+  data$month = NULL
   
   return(data)
 }

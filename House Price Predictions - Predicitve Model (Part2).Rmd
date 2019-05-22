@@ -47,11 +47,8 @@ df_test<-whole_data$holdout[, .(id=1:.N, price)]
 df_pred<-whole_data$test[,c("id")]
 
 whole_data$train$id = NULL
-whole_data$train$date = NULL
 whole_data$test$id = NULL
-whole_data$test$date = NULL
 whole_data$holdout$id = NULL
-whole_data$holdout$date = NULL
 
 formula<-as.formula(price~.)
 ```
@@ -60,7 +57,7 @@ formula<-as.formula(price~.)
 ## 1. Linear model
 To start with a linear model is used to predict the continous variable.
 
-```{r}
+```{r, warning=FALSE, message=FALSE}
 lm <- lm(formula = formula, 
                  data=whole_data$train)
 summary(lm)

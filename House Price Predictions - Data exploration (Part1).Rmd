@@ -46,7 +46,7 @@ sum(is.na(raw_test_data))
 ### 1.3 Data preparation
 By looking at the data types of the several features, we can see right away that some of them are not in the correct format. Thus with the self-programmed function **prep_data several** datatypes for both data sets are changed:
 
-* date: chr to date
+* date: chr to date (for later feature creation)
 * zip code: int to factor 
  
 Furthermore based on the information we have some features are created with this function. These features could already be seen as part of feature engineering/creation but are important aspects espcially for the data exploration:
@@ -54,6 +54,9 @@ Furthermore based on the information we have some features are created with this
 * renovated: if the renovation year is different from 0, then there was a renovation (1), if it is equal to 0 there was none (0)
 * basement: if the variable sqft_basement is 0, then there is n basement (0), otherwise there is one (1)
 * houseage: in order to interpret the building year on a better scale, the actual age of the house if calculated by taking the difference between the current year and the building year
+* month: month in which house was sold - there might be seasonal effects
+
+Due to the fact that month of sale is extracted the date column is not needed anymore and thus excluded from the data set.
 
 The function is specifically programmed for these data sets and are applied to both train and test. The transformed data sets are then saved within a new variable.
 
@@ -80,7 +83,7 @@ In order to have a general feeling for the train dataset, a table is created tha
 With regard to the boolean variables we already see from their means that only 1% of the houses is on the waterfront, only 4% of the houses were renovated and 39% of the houses have a basement.
 ```{r}
 df <- as.data.frame(prep_train_data)
-df <- df[ , !(names(df) %in% c('id', 'date', 'zipcode', 'lat', 'long'))]
+df <- df[ , !(names(df) %in% c('id', 'month', 'zipcode', 'lat', 'long'))]
 distribution <- as.data.frame(t(sapply(df, quantile)))
 distribution$Mean <- sapply(df, mean)
 distribution$SD <- sapply(df, sd)
@@ -160,7 +163,7 @@ As we can see the log of prices is actually quiet close to a normal distribution
 Since there are several integer variables that are discrete rather than continous variables, it makes sense to look at them in a separate way than continous variables. First all the names of discrete variables are stored within a variable. Then a new dataframe is created that only stores the discrete variables. Since these variables stored discrete values they are transformed into factores and afterwards are melted.
 
 ```{r}
-discVar <- c("bedrooms", "bathrooms", "floors", "waterfront", "view", "condition", "grade", "renovated", "basement")
+discVar <- c("bedrooms", "bathrooms", "floors", "waterfront", "view", "condition",  "renovated", "basement", "grade", "month")
 
 df_disc <- prep_train_data[, ..discVar]
 df_disc <- sapply(df_disc, as.factor)
@@ -221,7 +224,7 @@ We see again that especially bedroom and bathroom are variables with several out
 
 
 #### 1.4.3 Continous variables
-Similar to the discrete variables, we also have a look at the several continous variables. Six of them are all related to squarefeet measures while the seventh is the newly created houseage. In order to plot them properly a new melted dateframe is created.
+Similar to the discrete variables, we also have a look at the several continous variables. Six of them are all related to squarefeet measures, the the others are houseage and grade . In order to plot them properly a new melted dateframe is created.
 
 ```{r, warning=FALSE, message=FALSE}
 contVar <- c("sqft_living", "sqft_lot", "sqft_above", "sqft_basement", "sqft_living15", "sqft_lot15", "houseage")
@@ -385,9 +388,8 @@ We will need to take a closer look at the residuals of our model later on in ord
 
 ```{r}
 corr_data <- as.data.frame(prep_train_data)
-corr_data <- corr_data[ , !(names(corr_data) %in% c('id', 'date', 'zipcode'))]
+corr_data <- corr_data[ , !(names(corr_data) %in% c('id', 'zipcode'))]
 CorrelationResults = cor(corr_data)
-#corrplot(CorrelationResults, type = 'lower')
 
 corrplot(CorrelationResults, method = "color", outline = T, cl.pos = 'n', rect.col = "black",  tl.col = "indianred4", addCoef.col = "black", number.digits = 2, number.cex = 0.60, tl.cex = 0.7, cl.cex = 1, col = colorRampPalette(c("green4","white","red"))(100))
 
@@ -397,11 +399,11 @@ As we said before it might be that several of our discrete variables do not show
 
 ##### Discrete variable relationship to the price
 Most of the discrete variables appear to have no linear relationship with the target variable and thus can be turned into factor variables. However, number of bathrooms and grade seem to have a linear relatonship and thus should stay numeric variables.
-Furthermore, the variable condition shows a very low correlation of only 0.04 and thus since its below 0.05 should be excluded for the modeling.
+Furthermore, the variable condition, month and year show very little correlation of less than 0.05 should be excluded for the modeling.
 In the following data cleaning part the data type transformations will be done.
 
 ```{r}
-options(repr.plot.width = 14, repr.plot.height = 14)
+options(repr.plot.width = 18, repr.plot.height = 18)
 
 corr_data2 <- data.frame(prep_train_data)
 
@@ -421,7 +423,7 @@ Also for the continous variables we that that most of them show some kind of lin
 In regard to house age and consquently year_built we see that the correlation is low and no apparent relationship can be seen. However, a thing to consider here is to create bins based on the building year decade since we saw before a drop in average house prices for a specific period in time.
 
 ```{r}
-options(repr.plot.width = 14, repr.plot.height = 14)
+options(repr.plot.width = 18, repr.plot.height = 18)
 
 corr_cont <- ggpairs(corr_data2[,c("price", contVar)]) +
   theme_minimal() +
@@ -453,10 +455,14 @@ As we have seen before in the correlation analysis there are several features th
 
 * condition: corr = 0.04
 * sqft_lot15 : cor = 0.08
+
 *sqft_lot will be included for now eventhough corr = 0.09 to test significance in model*
 
 * houseage: corr = -0.05
+
 *yr_built will be included for eventhough corr = 0.05 to test significance in model and to create a new variable based on decades*
+
+* month: corr = 0.01
 
 A function was created to delete these columns from train and test data. No threshold for the correlation is set here but the columns are called by there names since as described above some of the low correlation features might be used in the next step.
 ```{r}
@@ -491,13 +497,12 @@ total_data <- rbind(prep_train_data3, prep_test_data3)
 
 ##### Dummy encode
 ```{r}
-total_encoded<-caret::dummyVars(formula= ~.- id - date, data = total_data, fullRank=F,sep = "_")
+total_encoded<-caret::dummyVars(formula= ~.- id , data = total_data, fullRank=F,sep = "_")
 total_encoded<-data.table(predict(total_encoded, newdata = total_data))
 
 names(total_encoded)<-gsub('-','_',names(total_encoded))
 
 total_encoded$id <- total_data$id
-total_encoded$date <- total_data$date
 
 str(total_data)
 str(total_encoded)
