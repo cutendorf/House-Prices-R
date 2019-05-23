@@ -30,11 +30,14 @@ test_data<-fread('data/data_test_dummy.csv', stringsAsFactors = F)
 ```
 
 #### Splitting dataset
-Since our test set is blind and we want to compare models when tuning them, a list object is created that not only stores the test data set but also a train data set (80% of train data) and a holdout set (20% of train data). Furthermore our target variable price is set and all integer variables are turned into numerical ones.
+Since our test set is blind and we want to compare models when tuning and selecting them, a list object is created that not only stores the blind test data set but also a train data set (80% of train data) and a holdout set (20% of train data) that was created from the overall provided train data. In order to evaluate and monitor the performance of the models also k-folds cross-validation is performed on the 80% train data set. Furthermore the predictions on the holdout data set are evaluated in order to see how well the model performs on data that is has nevern been trained on before. Crossvalidation results might already be enough in this case to evaluate but since we also want to track non-default measures such as MAPE it is easier to calculated them on a holdout prediction set.
 
-We store the id and the price data for the holdout in a seperate data set in order to calculate later on the metrics. Furthermore also the ids of the blind test set are stored in a seperate dataset to later on store the final predictions for submission.
+Since we want to predict the price, which is our target variable, this is stored in a variable called formular that uses price as target and all other variables of the data set as features, which are all turned into numeric variables. 
 
-Date and id and then excluded from all datasets since there were severe problems when trying to predict with the models.
+
+We store the id and the price data for the holdout in a seperate data set in order to calculate later the metrics. Furthermore also the ids of the blind test set are stored in a seperate dataset to later on match the final predictions for submission.
+
+Id is then excluded from all datasets since there were severe problems when trying to predict with the models and not using the id as an input.
 
 ```{r}
 whole_data = f_split(train_data, test_data, testsize = 0.2, seed = 1)
@@ -44,7 +47,7 @@ whole_data<-lapply(whole_data, function(x){
 
 #df_test<-whole_data$holdout[,c("id", "price")]
 df_test<-whole_data$holdout[, .(id=1:.N, price)]
-df_pred<-whole_data$test[,c("id")]
+df_pred<-whole_data$test[,"id"]
 
 whole_data$train$id = NULL
 whole_data$test$id = NULL
@@ -55,23 +58,31 @@ formula<-as.formula(price~.)
 
 
 ## 1. Linear model
+Since we are predicting a continous target, it makes sense to start with a linear regression. Eventhough we have many features now due to dummy encoding, linear regression gives a good starting point for the modeling. Thus we will use it as a baseline 
+
 To start with a linear model is used to predict the continous variable.
 
 ```{r, warning=FALSE, message=FALSE}
 lm <- lm(formula = formula, 
                  data=whole_data$train)
 summary(lm)
+```
 
+```{r, warning=FALSE, message=FALSE}
 test_lm<-predict(lm, newdata = whole_data$holdout)
 
 df_test<-cbind(df_test, test_lm)
 
 str(df_test)
 
-ggplot(melt(df_test, id.vars = 'id'), aes(x=id,y=value, colour=variable))+
-  geom_point(alpha=0.65)+ylim(0,4000000)+xlab('')+ylab('$')+
-  ggtitle('Linear Regression - Test prediction')+
-  scale_colour_manual(values = c('black','red'))
+ggplot(df_test, aes(x=price,y=test_lm))+
+      geom_point(alpha=0.5)+xlab('actual')+ylab('predictions')+
+      #+ylim(0,2000000)+xlim(0,2000000)
+      geom_abline(slope=1, intercept=0)+
+      ggtitle('Linear Regression - Test prediction')
+
+residualPlot(lm, ask=F)
+
 
 
 rmse_lm<-rmse(real=whole_data$holdout$price, predicted = test_lm)
