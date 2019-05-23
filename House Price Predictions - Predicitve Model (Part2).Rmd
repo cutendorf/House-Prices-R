@@ -39,6 +39,8 @@ We store the id and the price data for the holdout in a seperate data set in ord
 
 Id is then excluded from all datasets since there were severe problems when trying to predict with the models and not using the id as an input.
 
+Before starting to model an empty data frame is created to store the results.
+
 ```{r}
 whole_data = f_split(train_data, test_data, testsize = 0.2, seed = 1)
 whole_data<-lapply(whole_data, function(x){
@@ -54,19 +56,38 @@ whole_data$test$id = NULL
 whole_data$holdout$id = NULL
 
 formula<-as.formula(price~.)
+
+result<-data.table(method=c('lm','glmnet','tree','rf','xgb','xgb_reg'),R2cv=NA, RMSE=NA, MAE=NA,MAPE=NA)
 ```
 
 
 ## 1. Linear model
-Since we are predicting a continous target, it makes sense to start with a linear regression. Eventhough we have many features now due to dummy encoding, linear regression gives a good starting point for the modeling. Thus we will use it as a baseline 
+Since we are predicting a continous target, it makes sense to start with a linear regression. Eventhough we have many features now due to dummy encoding, linear regression gives a good starting point for the modeling. Thus we will use it as a baseline and try to improve our results from there.
 
-To start with a linear model is used to predict the continous variable.
+The first step is to use a simple linear model. It results in an adjusted R2 of 0.81 with many significant variables. However, several features show up as NAs. An explaination for this can be that those variables are highly correlated to other input variables and are right away discarded in the model.
 
 ```{r, warning=FALSE, message=FALSE}
 lm <- lm(formula = formula, 
                  data=whole_data$train)
 summary(lm)
 ```
+
+In order to further evaluate the model a k-fold crossvaldiation is performed with 5 folds. The R2 for the cross valdiation is 0.807 which is quiet close to our actual R2 from the trained model and thus the model is not tending to overfit.
+
+```{r, warning=FALSE, message=FALSE}
+set.seed(123) 
+train.control <- trainControl(method = "cv", number = 5)
+
+
+lm_cv <- train(formula, data = whole_data$train, method = "lm",
+               trControl = train.control)
+
+print(lm_cv)
+
+R2cv_lm<-lm_cv$results$Rsquared
+```
+
+The next step is to check how good the model prediciton for the holdout are. In this case we can also use the functions created to evaluate metrics such as MAE, MAPE and RMSE.
 
 ```{r, warning=FALSE, message=FALSE}
 test_lm<-predict(lm, newdata = whole_data$holdout)
@@ -82,7 +103,6 @@ ggplot(df_test, aes(x=price,y=test_lm))+
       ggtitle('Linear Regression - Test prediction')
 
 residualPlot(lm, ask=F)
-
 
 
 rmse_lm<-rmse(real=whole_data$holdout$price, predicted = test_lm)
