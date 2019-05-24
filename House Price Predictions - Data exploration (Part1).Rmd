@@ -1,7 +1,7 @@
 ---
 title: "House Price Predictions - Data exploration (Part1)"
 author: "Christine Utendorf"
-date: "23 May 2019"
+date: "26 May 2019"
 output: html_document
 ---
 
@@ -10,7 +10,7 @@ First all needed libraries are loaded. This includes data.table, DT and lubridat
 
 All self-programed functions such as transforming or splitting a dataset are saved within the R notbook called functions.
 
-```{r, warning=FALSE, message=FALSE}
+```{r source loading, warning=FALSE, message=FALSE}
 source('notebooks/libraries.R')
 source('notebooks/functions.R')
 ```
@@ -21,7 +21,7 @@ The work is divided into two R markdowns. The first one only focusses on data ex
 
 ### 1.1 Data loading
 Two data sets are provided. Both cover house sales within King County, USA and each row represents a single house sale between May 2014 and May 2015. While the train data set includes the price for each sale the test data set does not. Thus we are provided with a "blind" test data set. The train data set will be used to train and tune the machine learning model, while the test data set will be used to make price predictions based on the provided data and its features.
-```{r}
+```{r data loading}
 raw_train_data<-fread('data/house_price_train.csv', stringsAsFactors = F)
 raw_test_data<-fread('data/house_price_test.csv', stringsAsFactors = F)
 ```
@@ -29,7 +29,7 @@ raw_test_data<-fread('data/house_price_test.csv', stringsAsFactors = F)
 ### 1.2 Data description
 Consequently the train data set includes 21 columns while the test data set has only 20 columns. While the train data has 17,277 house sales, the test data has 4,320 house sales. Both data sets actually come from a complete data set that can be found on Kaggle under following [link](https://www.kaggle.com/harlfoxem/housesalesprediction). However, this data set was probably then randomly splitted into train and test data using a 80:20 split and then for the test data set the prices were removed. Thus both data sets share the same 19 house features and each sale is identfied with a numeric id.
 Most of the features are directly related to the house properties such as number of bedrooms, squarefeet, waterfront, floors etc. In addition, we have information of the building year of the house and the lastest renovation (if there was any). There are also features that try to capture the overall condition of the house such as grade and condition. However, these two variables are likely to capture the same information and thus one might be redundant. Furthermore location data is provided as well as how often the place was visited. Overall, the dataset covers the most important house features that are also usually used on house sale websites.
-```{r, warning=FALSE, message=FALSE}
+```{r show data, warning=FALSE, message=FALSE}
 str(raw_train_data)
 str(raw_test_data)
 datatable(raw_train_data)
@@ -37,7 +37,7 @@ datatable(raw_train_data)
 
 ##### NA detection
 Overall, we see that the data does not have any missing values, which is an imporant aspect in terms of data quality.
-```{r}
+```{r check na}
 sum(is.na(raw_train_data))
 sum(is.na(raw_test_data))
 ```
@@ -48,15 +48,6 @@ By looking at the data types of the several features, we can see right away that
 
 * date: chr to date (for later feature creation)
 * zip code: int to factor 
- 
-Furthermore based on the information we have some features are created with this function. These features could already be seen as part of feature engineering/creation but are important aspects espcially for the data exploration:
-
-* renovated: if the renovation year is different from 0, then there was a renovation (1), if it is equal to 0 there was none (0)
-* basement: if the variable sqft_basement is 0, then there is n basement (0), otherwise there is one (1)
-* houseage: in order to interpret the building year on a better scale, the actual age of the house if calculated by taking the difference between the current year and the building year
-* month: month in which house was sold - there might be seasonal effects
-
-Due to the fact that month of sale is extracted the date column is not needed anymore and thus excluded from the data set.
 
 The function is specifically programmed for these data sets and are applied to both train and test. The transformed data sets are then saved within a new variable.
 
@@ -64,12 +55,12 @@ The function is specifically programmed for these data sets and are applied to b
 There are several features that appear to be rather factor variables than numbers or integers. They represent discrete variables and should be turned into factors. Before turning them into factors, first data visualization is performed to actually see if we find linear relationship between those features and the target variable. If this is the case we can leave them as numeric or integer variable, in any other case they should be turned into factors.
 
 ##### Train data
-```{r}
+```{r fix data types 1 train}
 prep_train_data <- prep_data(raw_train_data)
 str(prep_train_data)
 ```
 ##### Test data
-```{r}
+```{r fix data types 1 test}
 prep_test_data <- prep_data(raw_test_data)
 str(prep_test_data)
 ```
@@ -80,10 +71,10 @@ One of the most important things in machine learning is to get familiar with the
 
 #### Distribution
 In order to have a general feeling for the train dataset, a table is created that shows the general distribution of all numeric variables. Especially the price quantiles can help later in the visualization when price bins are needed.
-With regard to the boolean variables we already see from their means that only 1% of the houses is on the waterfront, only 4% of the houses were renovated and 39% of the houses have a basement.
-```{r}
+
+```{r distribution table}
 df <- as.data.frame(prep_train_data)
-df <- df[ , !(names(df) %in% c('id', 'month', 'zipcode', 'lat', 'long'))]
+df <- df[ , !(names(df) %in% c('id', 'zipcode', 'lat', 'long', 'date'))]
 distribution <- as.data.frame(t(sapply(df, quantile)))
 distribution$Mean <- sapply(df, mean)
 distribution$SD <- sapply(df, sd)
@@ -91,8 +82,8 @@ datatable(round(distribution, 2))
 ```
 
 #### 1.4.1 Price distribution
-Since price is the target variable the first step is too look at the distribution of this continous variable.
-```{r,warning=FALSE, message=FALSE}
+Since price is the target variable the first step is too look at the distribution of this continuous variable.
+```{r price/target distribution,warning=FALSE, message=FALSE}
 price_dist <- ggplot(prep_train_data, aes(x = price)) +    
               geom_histogram(alpha = 0.8, fill='greenyellow') +
               labs(x= 'Price',y = 'Count', title = 'Price distribution') + 
@@ -111,7 +102,7 @@ ggplotly(price_dist)
 
 Since there are some houses that sold for very high prices (>2 million) the distribution chart does not reveal much due to the high skewness to the right. Thus the distribution chart is now cut off at 2 mio in order to gain a better picture of the price distribution
 
-```{r,warning=FALSE, message=FALSE}
+```{r cutted price/target distribution,warning=FALSE, message=FALSE}
 price_dist_cut <- ggplot(prep_train_data, aes(x = price)) +    
               geom_histogram(alpha = 0.8, fill='greenyellow') +
               scale_x_continuous(limits=c(0,2e6)) +
@@ -135,7 +126,7 @@ The distribution is still skewed to the right but now we see that most houses so
 
 Another option is to use the logarithm of the target variable and check if it is normally distributed. It might make sense to work with a log-transformed target and then transform the predtictions back to their original scale using the exponential.
 
-```{r,warning=FALSE, message=FALSE}
+```{r log price/target distribution,warning=FALSE, message=FALSE}
 price_data <- log(prep_train_data$price)
 price_data <- as.data.frame(price_data)
 names(price_data)[1] <- "price_log"
@@ -157,21 +148,19 @@ price_log_dist <- ggplot(price_data, aes(x = price_log)) +
 ggplotly(price_log_dist)
 ```
 
-As we can see the log of prices is actually quiet close to a normal distribution. It might make sense to actually use the log of the target for the model and then transform back the predictions on the initial scale.
+As we can see the log of prices is actually quiet close to a normal distribution. It might make sense to actually use the log of the target for a linear model and then transform back the predictions on the initial scale by using the exponential.
 
 #### 1.4.2 Discrete variables
-Since there are several integer variables that are discrete rather than continous variables, it makes sense to look at them in a separate way than continous variables. First all the names of discrete variables are stored within a variable. Then a new dataframe is created that only stores the discrete variables. Since these variables stored discrete values they are transformed into factores and afterwards are melted.
+Since there are several integer variables that are discrete rather than continuous variables, it makes sense to look at them in a separate way than continuous variables. First all the names of discrete variables are stored within a variable. Then a new dataframe is created that only stores the discrete variables. Since these variables stored discrete values they are transformed into factores and afterwards are melted.
 
-```{r}
-discVar <- c("bedrooms", "bathrooms", "floors", "waterfront", "view", "condition",  "renovated", "basement", "grade", "month")
+```{r distribution discrete variables}
+discVar <- c("bedrooms", "bathrooms", "floors", "waterfront", "view", "condition", "grade")
 
 df_disc <- prep_train_data[, ..discVar]
 df_disc <- sapply(df_disc, as.factor)
 df_disc <- as.data.frame(melt(df_disc))
 df_disc$value <- factor(df_disc$value, levels=sort(as.numeric(levels(df_disc$value))), ordered=TRUE)
-```
 
-```{r}
 options(repr.plot.width = 24, repr.plot.height = 8)
 
 disc_dist <- ggplot(df_disc, aes(value)) +
@@ -183,9 +172,9 @@ disc_dist <- ggplot(df_disc, aes(value)) +
       ggtitle("Count of each discrete variable") +
       labs(fill = "", x = "", y = "") +
       theme_minimal() +
-      theme(text = element_text(face = "bold"),
+      theme(text = element_text(face = "plain"),
             legend.position = "none",
-            axis.text.x = element_text(angle = 0),
+            axis.text.x = element_text(angle = 90, size = 7),
             panel.grid.major = element_blank(),
             panel.grid.minor = element_blank(),
            plot.title = element_text(hjust = 0.5)) 
@@ -195,7 +184,7 @@ disc_dist
 
 There are several features that have a highly unbalanced distribution such as views (many never viewed = 0), waterfront (most not on waterfront) and renovated (most not renovated.). Something else we see right away by looking at the histograms is that it seems that for bedroom and bathroom there are some questionable values. While there are houses without a bathrooms (= 0), another house appears to have 33 bedrooms. Thus it makes sense to further look at outliers in this case.
 
-```{r}
+```{r boxplot discrete variables}
 options(repr.plot.width = 10, repr.plot.height = 10)
 
 disc_box <- ggplot(df_disc, aes(Var2, as.numeric(value))) +
@@ -223,29 +212,30 @@ disc_box
 We see again that especially bedroom and bathroom are variables with several outliers. Thus we will take a closer look at it in the data cleaning part.
 
 
-#### 1.4.3 Continous variables
-Similar to the discrete variables, we also have a look at the several continous variables. Six of them are all related to squarefeet measures, the the others are houseage and grade . In order to plot them properly a new melted dateframe is created.
+#### 1.4.3 continuous variables
+Similar to the discrete variables, we also have a look at the several continuous variables. Six of them are all related to squarefeet measures the last one is grade. In order to plot them properly a new melted dateframe is created.
 
-```{r, warning=FALSE, message=FALSE}
-contVar <- c("sqft_living", "sqft_lot", "sqft_above", "sqft_basement", "sqft_living15", "sqft_lot15", "houseage")
+```{r set-up distribution continuous variables, warning=FALSE, message=FALSE}
+contVar <- c("sqft_living", "sqft_lot", "sqft_above", "sqft_basement", "sqft_living15", "sqft_lot15")
 df_cont <- prep_train_data[,..contVar]
 df_cont <- as.data.frame(melt(df_cont))
 ```
 
-We see that all of these continous variables are skewed to the right. Especially the one once related to lot sizes showing that there are many with very little lot sizes and very few with large lot sizes. For sqft of the basement we see similar to the variable of having a basement or not that a large proportion of the houses have no basement and thus a sqft size of 0 for basement. Houseage is actually the variable that is more evenly distributed. We will take a closer look in the following at the year built variable.
+We see that all of these continuous variables are skewed to the right. Especially the one once related to lot sizes showing that there are many with very little lot sizes and very few with large lot sizes. For sqft of the basement we see similar to the variable of having a basement or not that a large proportion of the houses have no basement and thus a sqft size of 0 for basement. We will take a closer look in the following at the year built variable.
 
-```{r}
+```{r distribution continuous variables}
 options(repr.plot.width = 12, repr.plot.height = 6)
 
 cont_dist <- ggplot(df_cont, aes(value)) +
         geom_density(aes(fill = variable)) +
-        facet_wrap(~variable, scales = "free") +
+        facet_wrap(~variable, scales = "free", nrow = 2) +
         labs(x = "", y = "", fill = "") +
         theme_minimal() +
         scale_fill_tableau() +
-        ggtitle("Distribution of each continous variable") +
+        ggtitle("Distribution of each continuous variable") +
         theme(text = element_text(face = "bold"),
               legend.position = "none",
+              axis.text.x = element_text(angle = 45),
               panel.grid.major = element_blank(),
               panel.grid.minor = element_blank(),
              plot.title = element_text(hjust = 0.5))
@@ -255,7 +245,7 @@ cont_dist
 
 Since we know we have highly skewed variables it make sense to take a look at their boxplots. However, using non-normalized boxplots does not reveal much due to the large number of outliers
 
-```{r}
+```{r boxplot continuous variables}
 cont_box <- ggplot(df_cont, aes(variable, value)) +
           geom_boxplot(aes(fill = variable)) +
           coord_flip() +                                
@@ -275,7 +265,7 @@ cont_box
 
 Thus the variables are normalized using the max-min normalizer. Now the boxplots reveal a bit more but still many variables have a high number of outliers.
 
-```{r, warning=FALSE, message=FALSE}
+```{r normalized boxplot continuous variables, warning=FALSE, message=FALSE}
 
 df_cont_norm <- prep_train_data[,..contVar]
 df_cont_norm <- as.data.frame(apply(df_cont_norm, 2,function(x)((x - min(x))/(max(x)-min(x)))))
@@ -301,7 +291,7 @@ cont_box_norm
 #### 1.4.4 Building year
 Overall, we see that the number of houses built per year seems to rise. However especially during economic downturns such as the 1930s and the years following the financial crisis in 2008. However, it is likely that this does not reflect the actual building pattern in this area since in specific years some houses from a specific time could be torn down or a particularly popular. However, there might be actual price trends that could be related to the building year, since some century building style could be more popular than others.
 
-```{r}
+```{r building year}
 options(repr.plot.width = 10, repr.plot.height = 5)
 
 year_plot <- ggplot(prep_train_data, aes(yr_built)) +
@@ -318,7 +308,7 @@ ggplotly(year_plot)
 
 While a simple scatterplot does not help to acutally detect any pattern, a smoothing average line actually reveals that prices for houses built between 1940 and 1980 do not seem to sell at high prices on average. While there seem to be tweo houses built before 1940 that sold for very high prices (>7mio), most of the high priced houses were built after 1990.
 
-```{r, warning=FALSE, message=FALSE}
+```{r average prices building year, warning=FALSE, message=FALSE}
 options(repr.plot.width = 10, repr.plot.height = 5)
 
 y1 <- ggplot(prep_train_data, aes(yr_built, price)) +
@@ -349,7 +339,7 @@ We see overall especially houses close to the water are very expensive and that 
 
 Clustering based on the location could be performed here as well, but as a first step zip code should reflect a similar level of granularity here.
 
-```{r}
+```{r location data}
 location_data <- data.frame(prep_train_data)
 location_data$PriceBin<-cut(location_data$price, c(0,300000,450000,650000,2000000,9000000))
 
@@ -374,7 +364,7 @@ leaflet(location_data) %>% addProviderTiles("Esri.OceanBasemap") %>%
 ```
 
 #### 1.4.6 Correlation analysis
-We can observe that sqft_living and sqft_lot are highly correlated with sqft_living15 and sqft_lot15. Apparently these values are related to updates and renovations in 2015. Since houseage was created based on the building year there are highly negative correlated. Thus it makes sense only to include on for the model since both represent the same thing.
+We can observe that sqft_living and sqft_lot are highly correlated with sqft_living15 and sqft_lot15. Apparently these values are related to updates and renovations in 2015.
 
 There are some variables with very high correlation to the price:
 
@@ -386,23 +376,23 @@ There are some variables with very high correlation to the price:
 
 We will need to take a closer look at the residuals of our model later on in order to check the effect of multicoliniarity and then decide if it is necessary to further exclude high correlated features.
 
-```{r}
+```{r correlation matrix}
 corr_data <- as.data.frame(prep_train_data)
-corr_data <- corr_data[ , !(names(corr_data) %in% c('id', 'zipcode'))]
+corr_data <- corr_data[ , !(names(corr_data) %in% c('id', 'zipcode', 'date'))]
 CorrelationResults = cor(corr_data)
 
 corrplot(CorrelationResults, method = "color", outline = T, cl.pos = 'n', rect.col = "black",  tl.col = "indianred4", addCoef.col = "black", number.digits = 2, number.cex = 0.60, tl.cex = 0.7, cl.cex = 1, col = colorRampPalette(c("green4","white","red"))(100))
 
 ```
 
-As we said before it might be that several of our discrete variables do not show a linear relationship to the price and thus should be turned into factore. Thus the relationship of the discrete as well as the continous variables is checked in the following.
+As we said before it might be that several of our discrete variables do not show a linear relationship to the price and thus should be turned into factore. Thus the relationship of the discrete as well as the continuous variables is checked in the following.
 
 ##### Discrete variable relationship to the price
 Most of the discrete variables appear to have no linear relationship with the target variable and thus can be turned into factor variables. However, number of bathrooms and grade seem to have a linear relatonship and thus should stay numeric variables.
 Furthermore, the variable condition, month and year show very little correlation of less than 0.05 should be excluded for the modeling.
 In the following data cleaning part the data type transformations will be done.
 
-```{r}
+```{r correlation continuous variables}
 options(repr.plot.width = 18, repr.plot.height = 18)
 
 corr_data2 <- data.frame(prep_train_data)
@@ -417,12 +407,12 @@ corr_disc
 ```
 
 
-##### Continous variable relationship to the price
-Also for the continous variables we that that most of them show some kind of linear relation ship to the target. However, the variables sqft_lot, sqft_lot15 and house age do not show a good relationship and very low correlation values to the target. Thus it might make sense to exclude them from the model since their correlation is less than 0.1. 
+##### continuous variable relationship to the price
+Also for the continuous variables we that that most of them show some kind of linear relation ship to the target. However, the variables sqft_lot, sqft_lot15 and house age do not show a good relationship and very low correlation values to the target. Thus it might make sense to exclude them from the model since their correlation is less than 0.1. 
 
 In regard to house age and consquently year_built we see that the correlation is low and no apparent relationship can be seen. However, a thing to consider here is to create bins based on the building year decade since we saw before a drop in average house prices for a specific period in time.
 
-```{r}
+```{r correlation discrete variables}
 options(repr.plot.width = 18, repr.plot.height = 18)
 
 corr_cont <- ggpairs(corr_data2[,c("price", contVar)]) +
@@ -441,7 +431,7 @@ We have seen before that there were several data points with unusual data. For e
 
 Eventhough it seemed in the histograms that there are houses with 0 bathrooms. However, there is none with 0 bathrooms but several with less than 1 (e.g. 0.5 or 0.75). This could actually be based on the limited things within a bathroom (e.g. no shower). These values might be correct and thus the rows are not excluded.
 
-```{r}
+```{r data cleaning}
 show <- prep_train_data[which(prep_train_data$bedrooms > 10),]
 datatable(show)
 prep_train_data <- prep_train_data[-which(prep_train_data$bedrooms > 10),]
@@ -450,33 +440,13 @@ show<- prep_train_data[which(prep_train_data$bathrooms < 1),]
 datatable(show)
 ```
 
-#### 1.5.2 Low correlated features
-As we have seen before in the correlation analysis there are several features that should be excluded due to low correlation with the target:
-
-* condition: corr = 0.04
-* sqft_lot15 : cor = 0.08
-
-*sqft_lot will be included for now eventhough corr = 0.09 to test significance in model*
-
-* houseage: corr = -0.05
-
-*yr_built will be included for eventhough corr = 0.05 to test significance in model and to create a new variable based on decades*
-
-* month: corr = 0.01
-
-A function was created to delete these columns from train and test data. No threshold for the correlation is set here but the columns are called by there names since as described above some of the low correlation features might be used in the next step.
-```{r}
-prep_train_data2 <- low_correlation(prep_train_data)
-prep_test_data2 <- low_correlation(prep_test_data)
-```
-
 #### 1.5.3 Data type
 As said before it makes sense to turn several variables into factor features. The remaining numerical features that are still saved as integer are then turned into numeric features.
 The next step will be dummy encoding but we already save now a not encoded data set.
 
-```{r, warning=FALSE, message=FALSE}
-prep_train_data3 <- data_types(prep_train_data2)
-prep_test_data3 <- data_types(prep_test_data2)
+```{r fix data types 2 and save, warning=FALSE, message=FALSE}
+prep_train_data3 <- data_types(prep_train_data)
+prep_test_data3 <- data_types(prep_test_data)
 
 fwrite(prep_train_data3, 'data/data_train_ready.csv', row.names = F)
 fwrite(prep_test_data3, 'data/data_test_ready.csv', row.names = F)
@@ -487,7 +457,7 @@ Since most algorithms require dummy encoding we are transforming our factor vari
 When performing dummy encoding though, it came apparent that the test and the train set have differences among their factor variables. The test set resulted in only 102 variables and the train set in 105 variables. Thus two encoded variables are probably missing in the test set. Thus the encoding needs to be performed on a combined data set.
 
 ##### Combine data sets
-```{r, warning=FALSE, message=FALSE}
+```{r combine data sets, warning=FALSE, message=FALSE}
 prep_train_data3$dataset <- "train"
 prep_test_data3$dataset <- "test"
 prep_test_data3$price <- NA
@@ -496,13 +466,14 @@ total_data <- rbind(prep_train_data3, prep_test_data3)
 ```
 
 ##### Dummy encode
-```{r}
-total_encoded<-caret::dummyVars(formula= ~.- id , data = total_data, fullRank=F,sep = "_")
+```{r dummy encoding}
+total_encoded<-caret::dummyVars(formula= ~.- id -date , data = total_data, fullRank=F,sep = "_")
 total_encoded<-data.table(predict(total_encoded, newdata = total_data))
 
 names(total_encoded)<-gsub('-','_',names(total_encoded))
 
 total_encoded$id <- total_data$id
+total_encoded$date <- total_data$date
 
 str(total_data)
 str(total_encoded)
@@ -511,7 +482,7 @@ str(total_encoded)
 ##### Split data sets and save in csv
 At the end the data sets are split again based on the classification before on train and test. The train dataset has still 17,275 rows (two row deleted due to too many bedrooms) and the test 4,320 rows. Furthermore the sum of prices for the train data set before and the encoded one is the same.
 
-```{r, warning=FALSE, message=FALSE}
+```{r split datasets again, warning=FALSE, message=FALSE}
 data_train_ready <- subset(total_encoded, datasettrain==1)
 data_test_ready <- subset(total_encoded, datasettrain==0)
 data_test_ready$price <- NULL

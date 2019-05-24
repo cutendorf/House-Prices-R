@@ -4,37 +4,15 @@ prep_data <- function(data){
 
 # Transforming date column in actual date format
 data$date<-as.Date(data$date, "%m/%d/%Y")
-data$month <- month(data$date)
-data$date <- NULL
 
 # Transforming zip code in factor format
 data$zipcode<-as.factor(data$zipcode)
 
-# Creating variable to show if there was a renovation before
-data$renovated <- ifelse(data$yr_renovated == 0, 0, 1)
-
-# Creating variable if house has a basement
-data$basement <- ifelse(data$sqft_basement == 0, 0, 1)
-
-# Creating variable that shows the age of the house
-data$houseage <- year(Sys.time()) - data$yr_built
-
 return(data)
 }
 
-### Preparing the data set - Step 2 (Low correlation) ###
 
-low_correlation <- function(data){
-  
-  data$condition = NULL
-  data$houseage = NULL
-  data$sqft_lot15 = NULL
-  data$month = NULL
-  
-  return(data)
-}
-
-### Preparing the data set - Step 3 (Final data types) ###
+### Preparing the data set - Step 2 (Final data types) ###
 
 data_types <- function(data){
   
@@ -73,3 +51,36 @@ f_split<-function(data, test, testsize = 0.2, seed = 1){
   return(whole_data)
 }
 
+
+### Feature engineering - creating new features ###
+
+new_features <- function(data){
+  
+  # Transforming date column in actual date format
+  data$month <- month(data$date)
+  data$year <- year(data$date)
+  
+  # Creating variable to show if there was a renovation before
+  data$renovated <- ifelse(data$yr_renovated == 0, 0, 1)
+  
+  # Creating variable if house has a basement
+  data$basement <- ifelse(data$sqft_basement == 0, 0, 1)
+  
+  # Creating variable that shows the age of the house
+  data$houseage <- year(Sys.time()) - data$yr_built
+  
+  return(data)
+}
+
+
+### Exclude variables with low correlation ###
+
+low_correlation <- function(data){
+  
+  data$condition = NULL
+  data$houseage = NULL
+  data$sqft_lot15 = NULL
+  data$month = NULL
+  
+  return(data)
+}
