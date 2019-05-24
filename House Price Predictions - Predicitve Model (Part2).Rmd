@@ -102,6 +102,12 @@ ggplot(df_test, aes(x=price,y=test_lm))+
       geom_abline(slope=1, intercept=0)+
       ggtitle('Linear Regression - Test prediction')
 
+ggplot(melt(df_test, id.vars = 'id'), aes(x=id,y=value, colour=variable))+
+  geom_point(alpha=0.65)+geom_line(alpha=0.65)+
+  xlab('')+ylab('$')+
+  ggtitle('lm - Test Prediction on House Price')+
+  scale_colour_manual(values = c('black','red'))
+
 residualPlot(lm, ask=F)
 
 
