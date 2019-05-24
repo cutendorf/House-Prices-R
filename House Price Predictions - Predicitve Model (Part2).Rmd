@@ -13,7 +13,7 @@ Besides several libraries used for data exploration and visualization, the libra
 All self-programed functions such as transforming or splitting a dataset are saved within the R notbook called functions.
 
 Furthermore, several metrics that are not default for machine learning R packages are created as functions within the R notebook metrics. 
-```{r, warning=FALSE, message=FALSE}
+```{r source loading, warning=FALSE, message=FALSE}
 source('notebooks/libraries.R')
 source('notebooks/functions.R')
 source('notebooks/metrics.R')
@@ -24,25 +24,29 @@ The work is divided into two R markdowns. The first one only focusses on data ex
 #### Data loading
 From the data preparation and exploration part the prepared train and test data sets are loaded.
 
-```{r}
+```{r data loading}
 train_data<-fread('data/data_train_dummy.csv', stringsAsFactors = F)
 test_data<-fread('data/data_test_dummy.csv', stringsAsFactors = F)
+
+train_data$date<-as.Date(train_data$date, "%m/%d/%Y")
+test_data$date<-as.Date(test_data$date, "%m/%d/%Y")
 ```
 
 #### Splitting dataset
-Since our test set is blind and we want to compare models when tuning and selecting them, a list object is created that not only stores the blind test data set but also a train data set (80% of train data) and a holdout set (20% of train data) that was created from the overall provided train data. In order to evaluate and monitor the performance of the models also k-folds cross-validation is performed on the 80% train data set. Furthermore the predictions on the holdout data set are evaluated in order to see how well the model performs on data that is has nevern been trained on before. Crossvalidation results might already be enough in this case to evaluate but since we also want to track non-default measures such as MAPE it is easier to calculated them on a holdout prediction set.
+Since our test set is blind and we want to compare models an select the best one, a list object is created that not only stores the blind test data set but also a train data set (80% of train data) and a holdout set (20% of train data) that was created from the overall provided train data. In order to evaluate and monitor the performance of the models also k-folds cross-validation is performed on the 80% train data set. Furthermore the predictions on the holdout data set are evaluated in order to see how well the model performs on data that is has nevern been trained on before. Crossvalidation results might already be enough in this case to evaluate but since we also want to track non-default measures such as MAPE it is easier to calculated them on a holdout prediction set.
 
 Since we want to predict the price, which is our target variable, this is stored in a variable called formular that uses price as target and all other variables of the data set as features, which are all turned into numeric variables. 
 
 
 We store the id and the price data for the holdout in a seperate data set in order to calculate later the metrics. Furthermore also the ids of the blind test set are stored in a seperate dataset to later on match the final predictions for submission.
+(Even though I could exclude date from my model I had trouble when making predictions for the holdout, thus for the baseline models I exclude date from the data set and then when it come to feature engineering I include it again if any features are constructed based on date)
 
 Id is then excluded from all datasets since there were severe problems when trying to predict with the models and not using the id as an input.
 
-Before starting to model an empty data frame is created to store the results.
+Before starting to model an empty data frame is created to store the baseline results.
 
-```{r}
-whole_data = f_split(train_data, test_data, testsize = 0.2, seed = 1)
+```{r data set up}
+whole_data = f_partition(train_data, test_data, test_proportion=0.2, seed = 1)
 whole_data<-lapply(whole_data, function(x){
   return(x[, which(sapply(x, is.integer)):=lapply(.SD, as.numeric), .SDcols=sapply(x,is.integer)])
 })
@@ -55,26 +59,46 @@ whole_data$train$id = NULL
 whole_data$test$id = NULL
 whole_data$holdout$id = NULL
 
+# Having trouble excluding date column from lm model thus I save it in seperate datasets for later feature engineering
+train_date<-as.data.frame(whole_data$train$date)
+test_date<-as.data.frame(whole_data$test$date)
+holdout_date<-as.data.frame(whole_data$holdout$date)
+
+whole_data$train$date = NULL
+whole_data$test$date = NULL
+whole_data$holdout$date = NULL
+
+
 formula<-as.formula(price~.)
 
-result<-data.table(method=c('lm','glmnet','tree','rf','xgb','xgb_reg'),R2cv=NA, RMSE=NA, MAE=NA,MAPE=NA)
+result<-data.table(method=c('lm','glmnet','tree','rf','xgb','xgb_reg'),R2cv=0, RMSE=0, MAE=0,MAPE=0)
 ```
 
 
-## 1. Linear model
-Since we are predicting a continous target, it makes sense to start with a linear regression. Eventhough we have many features now due to dummy encoding, linear regression gives a good starting point for the modeling. Thus we will use it as a baseline and try to improve our results from there.
+## 1. Baseline models
+In order to select an algorithm for this predicitve model, all algorithms are trained on the train set and then based on their CV scores and test data scores the best model is chosen. Since no feature engineering or feature selection has been performed until now, all these models can be seen as baselines. The best baselinemodel is then chosen and from there on feature engineering, feature selection and hyperparameter tuning is performed. This approach is mainly chosen due to time and computing power constraints. For example, random forest and xgboost takes quiet some time not only to train but then later on to tune with for example grid search.
 
-The first step is to use a simple linear model. It results in an adjusted R2 of 0.81 with many significant variables. However, several features show up as NAs. An explaination for this can be that those variables are highly correlated to other input variables and are right away discarded in the model.
+### 1.1 Linear regression model
+Since we are predicting a continous target, it makes sense to start with a linear regression. Eventhough we have many features now due to dummy encoding, linear regression gives a good starting point for the modeling.
 
-```{r, warning=FALSE, message=FALSE}
+#### 1.1.1 Trained linear model
+The trained linear model results in an adjusted R2 of 0.815 with many significant variables. However, several features show up as NAs. The main reason for this is that due to the dummy encoding with full rank. For example view had values from 0 to 4. Thus if all values for view 0 to 3 are False view 4 has to be True. Thus we see here a perfect connection between these variables since we do not need the last one because its explained by the combination of the others. When we use a step-wise linear regression these NA values will be excluded right away from the model. However, for computing time reasons we stick with a normal linear model since a linear model with stepwise feature selection takes mch longer to train.
+
+```{r linear model, warning=FALSE, message=FALSE}
 lm <- lm(formula = formula, 
                  data=whole_data$train)
 summary(lm)
+
+## Example for LM stepwise feature selection
+# lm_step <-stepAIC(lm(formula = formula, data=whole_data$train), trace=F)
+# summary(lm_step)
 ```
 
-In order to further evaluate the model a k-fold crossvaldiation is performed with 5 folds. The R2 for the cross valdiation is 0.807 which is quiet close to our actual R2 from the trained model and thus the model is not tending to overfit.
+#### 1.1.2 Cross validation
 
-```{r, warning=FALSE, message=FALSE}
+In order to further evaluate the model a k-fold crossvaldiation is performed with 5 folds. The R2 for the cross valdiation is 0.812 which is quiet close to our actual R2 from the trained model and thus the model is not tending to overfit. The R2 result is saved in the result dataframe.
+
+```{r linear model CV, warning=FALSE, message=FALSE}
 set.seed(123) 
 train.control <- trainControl(method = "cv", number = 5)
 
@@ -84,35 +108,124 @@ lm_cv <- train(formula, data = whole_data$train, method = "lm",
 
 print(lm_cv)
 
-R2cv_lm<-lm_cv$results$Rsquared
+#R2cv_lm<-as.numeric(lm_cv$results$Rsquared)
+result[1,2]<-as.numeric(lm_cv$results$Rsquared)
 ```
 
-The next step is to check how good the model prediciton for the holdout are. In this case we can also use the functions created to evaluate metrics such as MAE, MAPE and RMSE.
+#### 1.1.3 Test performance 
 
-```{r, warning=FALSE, message=FALSE}
+The next step is to check how good the model prediciton for the holdout are. Overall we see that for the lower prices houses the models seems to be working well. Howver, to predict the prices for more expensive houses the model tends to underestimate the price.
+
+```{r linear model test, warning=FALSE, message=FALSE}
 test_lm<-predict(lm, newdata = whole_data$holdout)
 
 df_test<-cbind(df_test, test_lm)
 
-str(df_test)
 
 ggplot(df_test, aes(x=price,y=test_lm))+
       geom_point(alpha=0.5)+xlab('actual')+ylab('predictions')+
       #+ylim(0,2000000)+xlim(0,2000000)
       geom_abline(slope=1, intercept=0)+
       ggtitle('Linear Regression - Test prediction')
+```
 
-ggplot(melt(df_test, id.vars = 'id'), aes(x=id,y=value, colour=variable))+
-  geom_point(alpha=0.65)+geom_line(alpha=0.65)+
-  xlab('')+ylab('$')+
-  ggtitle('lm - Test Prediction on House Price')+
-  scale_colour_manual(values = c('black','red'))
 
+#### 1.1.4 Residuals
+
+Looking at the residuals supports our findings from the previous two plots. Thus this model would definetly need further improvement.
+
+```{r linear model test residuals}
 residualPlot(lm, ask=F)
+```
+
+#### 1.1.5 Result overview
+
+Finally the results are calculated and saved in the result dataframe. The MAPE (our main perfomance measure in this case) lies at 0.19.
+
+```{r linear model results}
+#rmse_lm<-rmse(real=whole_data$holdout$price, predicted = test_lm)
+result[1,3]<-as.numeric(rmse(real=whole_data$holdout$price, predicted = test_lm))
+#mae_lm<-mae(real=whole_data$holdout$price, predicted = test_lm)
+result[1,4]<-as.numeric(mae(real=whole_data$holdout$price, predicted = test_lm))
+#mape_lm<-mape(real=whole_data$holdout$price, predicted = test_lm)
+result[1,5]<-as.numeric(mape(real=whole_data$holdout$price, predicted = test_lm))
+datatable(result)
+```
 
 
-rmse_lm<-rmse(real=whole_data$holdout$price, predicted = test_lm)
-mae_lm<-mae(real=whole_data$holdout$price, predicted = test_lm)
-mape_lm<-mape(real=whole_data$holdout$price, predicted = test_lm)
-mape_lm
+### 1.2 Linear regression model with regularization (Lasso)
+ABC
+
+#### 1.2.1 Trained linear model with regularization
+The trained linear model with regularization results in an adjusted R2 of ABC with many significant variables.
+
+```{r glmnet cv, warning=FALSE, message=FALSE}
+glmnet_cv<-cv.glmnet(x = data.matrix(whole_data$train[, !'price']),
+                     nfolds = 5,
+                     y = whole_data$train[['price']],
+                     alpha=1,
+                     family = 'gaussian',
+                     standardize = T)
+plot.cv.glmnet(glmnet_cv)
+
+glmnet_cv$lambda.min
+```
+
+```{r glmnet , warning=FALSE, message=FALSE}
+glmnet_0<-glmnet(x = data.matrix(whole_data$train[, !'price']), 
+                 y = whole_data$train[['price']],
+                 family = 'gaussian',
+                 alpha=1, lambda = glmnet_cv$lambda.min)
+
+glmnet_0
+glmnet_0$beta
+result[2,2]<-as.numeric(glmnet_0$dev.ratio)
+```
+
+#### 1.2.2 Cross validation
+
+????
+
+```{r glmnet CV, warning=FALSE, message=FALSE}
+set.seed(123) 
+train.control <- trainControl(method = "cv", number = 5)
+```
+
+#### 1.2.3 Test performance 
+
+
+
+```{r glmnet test, warning=FALSE, message=FALSE}
+test_glmnet<-predict(glmnet_0, newx = as.matrix(whole_data$holdout[, !'price']))
+
+
+df_test<-cbind(df_test, test_glmnet=test_glmnet[,1])
+
+
+
+ggplot(df_test, aes(x=price,y=test_glmnet))+
+      geom_point(alpha=0.5)+xlab('actual')+ylab('predictions')+
+      #+ylim(0,2000000)+xlim(0,2000000)
+      geom_abline(slope=1, intercept=0)+
+      ggtitle('Lasso Regression - Test prediction')
+```
+
+#### 1.2.4 Residuals
+
+Looking at the residuals supports our findings from the previous two plots. Thus this model would definetly need further improvement.
+To plot the residuals the plotmo library was used. 
+
+```{r glmnet test residuals}
+plotres(glmnet_0, which=3)
+```
+
+#### 1.2.5 Result overview
+
+Finally the results are calculated and saved in the result dataframe. The MAPE (our main perfomance measure in this case) lies at 0.19.
+
+```{r glmnet results}
+result[2,3]<-as.numeric(rmse(real=whole_data$holdout$price, predicted = test_glmnet))
+result[2,4]<-as.numeric(mae(real=whole_data$holdout$price, predicted = test_glmnet))
+result[2,5]<-as.numeric(mape(real=whole_data$holdout$price, predicted = test_glmnet))
+datatable(result)
 ```

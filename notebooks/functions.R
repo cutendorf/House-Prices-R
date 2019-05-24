@@ -27,29 +27,26 @@ data_types <- function(data){
   return(data)
 }
 
-### Splitting into train and test data ###
+### Splitting into train, hold-out and test data ###
 
-f_split<-function(data, test, testsize = 0.2, seed = 1){
-  set.seed = seed
+
+f_partition<-function(df, test, test_proportion=0.2, seed=NULL){
   
-  # Index sample based on test size
-  nall = nrow(data) #total number of rows in data
-  ntrain = floor((1-testsize) * nall)
-  index = seq(1:nall)
-  trainIndex = sample(index, ntrain) #train data set
-  testIndex = index[-trainIndex]
+  if(!is.null(seed)) set.seed(seed)
   
-  # Splitting into train and test
-  train = data[trainIndex,]
-  holdout = data[testIndex,]
+  train_index<-sample(nrow(df), floor(nrow(df)*(1-test_proportion)), replace = FALSE)
+  df_train<-df[train_index]
+  df_holdout<-df[-train_index]
+  df_test <- test
   
-  # Creating the list
-  whole_data <- list(train, holdout, test)
-  names(whole_data) <- c("train", "holdout", "test")
-  
-  
-  return(whole_data)
+  return(list(train=df_train, holdout=df_holdout, test=df_test))
 }
+
+
+
+
+
+
 
 
 ### Feature engineering - creating new features ###
