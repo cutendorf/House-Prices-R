@@ -40,7 +40,7 @@ Since our test set is blind and we want to compare models an select the best one
 Since we want to predict the price, which is our target variable, this is stored in a variable called formular that uses price as target and all other variables of the data set as features, which are all turned into numeric variables. 
 
 
-We store the id and the price data for the holdout in a seperate data set in order to calculate later the metrics. Furthermore also the ids of the blind test set are stored in a seperate dataset to later on match the final predictions for submission.
+We store the price data for the holdout in a seperate data set in order to calculate later the metrics.
 (Even though I could exclude date from my model I had trouble when making predictions for the holdout, thus for the baseline models I exclude date from the data set and then when it come to feature engineering I include it again if any features are constructed based on date)
 
 Id is then excluded from all datasets since there were severe problems when trying to predict with the models and not using the id as an input.
@@ -53,9 +53,7 @@ whole_data<-lapply(whole_data, function(x){
   return(x[, which(sapply(x, is.integer)):=lapply(.SD, as.numeric), .SDcols=sapply(x,is.integer)])
 })
 
-#df_test<-whole_data$holdout[,c("id", "price")]
 df_test<-whole_data$holdout[, .(id=1:.N, price)]
-df_pred<-whole_data$test[,"id"]
 
 whole_data$train$id = NULL
 whole_data$test$id = NULL
@@ -642,7 +640,7 @@ fe_results[8,3]<-round(mae(real=df_test_fe$price, predicted = df_test_fe$test_xg
 fe_results[8,4]<-round(mape(real=df_test_fe$price, predicted = df_test_fe$test_xgb_lowcorr), digits=4)
 ```
 
-```{r result decade}
+```{r result correlation}
 datatable(fe_results)
 ```
 Excluding low correlated features worsened the performance of our model. Thus all initial features are kept.
@@ -772,11 +770,11 @@ xgb_final_cv <- xgb.cv(objective='reg:linear',
                   nfold = 5)
 ```
 
-The model is now used the obtain the predictions for the blind test data set. The predictions are then saved together with the previous used house sale id in a csv file that can be found in the data folder.
+The model is now used the obtain the predictions for the blind test data set. The predictions are then saved tin a csv file that can be found in the data folder.
 ```{r final xgboost predictions}
 xgb_final_pred<-predict(xgb_final, newdata = as.matrix(final_test_data), type='response')
 
-predictions<-cbind(df_pred,xgb_final_pred)
+predictions<-as.data.frame(xgb_final_pred)
 write.csv(predictions,'data/predictions.csv', row.names = FALSE)
 ```
 
