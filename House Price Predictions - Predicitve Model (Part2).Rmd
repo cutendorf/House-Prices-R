@@ -109,7 +109,7 @@ lm_cv <- train(formula, data = whole_data$train, method = "lm",
 print(lm_cv)
 
 #R2cv_lm<-as.numeric(lm_cv$results$Rsquared)
-result[1,2]<-as.numeric(lm_cv$results$Rsquared)
+result[1,2]<-round(lm_cv$results$Rsquared, digits=4)
 ```
 
 #### 1.1.3 Test performance 
@@ -143,12 +143,9 @@ residualPlot(lm, ask=F)
 Finally the results are calculated and saved in the result dataframe. The MAPE (our main perfomance measure in this case) lies at 0.19.
 
 ```{r linear model results}
-#rmse_lm<-rmse(real=whole_data$holdout$price, predicted = test_lm)
-result[1,3]<-as.numeric(rmse(real=whole_data$holdout$price, predicted = test_lm))
-#mae_lm<-mae(real=whole_data$holdout$price, predicted = test_lm)
-result[1,4]<-as.numeric(mae(real=whole_data$holdout$price, predicted = test_lm))
-#mape_lm<-mape(real=whole_data$holdout$price, predicted = test_lm)
-result[1,5]<-as.numeric(mape(real=whole_data$holdout$price, predicted = test_lm))
+result[1,3]<-round(rmse(real=whole_data$holdout$price, predicted = test_lm), digits=0)
+result[1,4]<-round(mae(real=whole_data$holdout$price, predicted = test_lm), digits=0)
+result[1,5]<-round(mape(real=whole_data$holdout$price, predicted = test_lm), digits=4)
 datatable(result)
 ```
 
@@ -181,7 +178,7 @@ glmnet_0<-glmnet(x = data.matrix(whole_data$train[, !'price']),
 
 glmnet_0
 glmnet_0$beta
-result[2,2]<-as.numeric(glmnet_0$dev.ratio)
+result[2,2]<-round(glmnet_0$dev.ratio, digits=4)
 ```
 
 #### 1.2.2 Cross validation
@@ -221,9 +218,9 @@ plotres(glmnet_0, which=3)
 Finally the results are calculated and saved in the result dataframe. The MAPE (our main perfomance measure in this case) lies around 0.19 as well - slightly below (=better) the result of the simple linear regression.
 
 ```{r glmnet results}
-result[2,3]<-as.numeric(rmse(real=whole_data$holdout$price, predicted = test_glmnet))
-result[2,4]<-as.numeric(mae(real=whole_data$holdout$price, predicted = test_glmnet))
-result[2,5]<-as.numeric(mape(real=whole_data$holdout$price, predicted = test_glmnet))
+result[2,3]<-round(rmse(real=whole_data$holdout$price, predicted = test_glmnet), digits=0)
+result[2,4]<-round(mae(real=whole_data$holdout$price, predicted = test_glmnet), digits=0)
+result[2,5]<-round(mape(real=whole_data$holdout$price, predicted = test_glmnet), digits=4)
 datatable(result)
 ```
 
@@ -240,7 +237,7 @@ rf<-ranger(formula, whole_data$train)
 
 summary(rf)
 
-result[3,2]<-as.numeric(rf$r.squared)
+result[3,2]<-round(rf$r.squared, digits=4)
 ```
 
 #### 1.3.2 Cross validation
@@ -276,12 +273,12 @@ ggplot(df_test, aes(x=price,y=test_rf))+
 Also by looking at the residuals we see again that the model performs better in the lower price region than in the high price region.
 
 ```{r random forest test residuals}
-rf_residuals <- df_test$price - df_test$test_rf
+rf_residuals <- whole_data$train$price - rf$predictions
 
-residual_plot<-as.data.frame(df_test$price)
+residual_plot<-as.data.frame(whole_data$train$price)
 residual_plot<-cbind(residual_plot,rf_residuals)
 
-ggplot(residual_plot, aes(x=df_test$price, rf_residuals)) +
+ggplot(residual_plot, aes(x=whole_data$train$price, rf_residuals)) +
     geom_point(shape=1) +
     geom_smooth()+
     theme_minimal()+
@@ -294,8 +291,86 @@ ggplot(residual_plot, aes(x=df_test$price, rf_residuals)) +
 Finally the results are calculated and saved in the result dataframe. The MAPE (our main perfomance measure in this case) lies at 0.14, which is significantly lower than the two linear models. Also by looking at the other three performance measures we see that the random forest model outperforms the other two models.
 
 ```{r random forest results}
-result[3,3]<-as.numeric(rmse(real=whole_data$holdout$price, predicted = test_rf))
-result[3,4]<-as.numeric(mae(real=whole_data$holdout$price, predicted = test_rf))
-result[3,5]<-as.numeric(mape(real=whole_data$holdout$price, predicted = test_rf))
+result[3,3]<-round(rmse(real=whole_data$holdout$price, predicted = test_rf), digits=0)
+result[3,4]<-round(mae(real=whole_data$holdout$price, predicted = test_rf), digits=0)
+result[3,5]<-round(mape(real=whole_data$holdout$price, predicted = test_rf), digits=4)
 datatable(result)
 ```
+
+
+### 1.4 Boosting trees model
+The last baseline model is a tree based xgboost model. 
+
+
+#### 1.4.1 Trained random forest model
+The model uses cross validation with 5 folds. Since R2 is not a default parameter for xgboost but only RMSE it was not possible to construct it from the model. I tried to access the training predictions of the model but I did not manage to find it. We can not use the model to predict on the train data and then use these predicitons because the model was trained on it. The R2 result would lie around 0.96 (I tried it). Thus for now the R2 will remain empty.
+
+```{r xgboost, warning=FALSE, message=FALSE}
+xgb_trcontrol = trainControl(
+  method = "cv",
+  number = 5,  
+  allowParallel = TRUE,
+  verboseIter = FALSE,
+  returnData = FALSE
+)
+
+xgb<-xgboost(booster='gbtree',
+               data=as.matrix(whole_data$train[, !'price', with=F]),
+               label=whole_data$train$price,
+               nrounds = 50,
+               objective='reg:linear',
+               trControl = xgb_trcontrol)
+print(xgb)
+
+#training_predictions = ???
+#res <- caret::postResample(whole_data$train$price, training_predictions)
+#rsq <- res[2]
+#result[4,2]<-round(rsq, digits=4)
+result[4,2]<-NA
+
+
+
+```
+
+#### 1.4.2 Cross validation
+
+Cross validation is already included in the trained model.
+
+
+#### 1.4.3 Test performance 
+
+The next step is to check how good the model prediciton for the holdout are. It seems that the model slightly improved here but still the problem for expensive houses remains.
+
+```{r xgboost test, warning=FALSE, message=FALSE}
+test_xgb<-predict(xgb, newdata = as.matrix(whole_data$holdout[, !'price', with=F]), type='response')
+
+
+df_test<-cbind(df_test, test_xgb)
+
+
+ggplot(df_test, aes(x=price,y=test_xgb))+
+      geom_point(alpha=0.5)+xlab('actual')+ylab('predictions')+
+      #+ylim(0,2000000)+xlim(0,2000000)
+      geom_abline(slope=1, intercept=0)+
+      ggtitle('XGBoost - Test prediction')
+```
+
+
+#### 1.4.4 Residuals
+
+Since I cannot access the training predicitons it is not possible to draw a residual plot for the training model.
+
+#### 1.4.5 Result overview
+
+Finally the results are calculated and saved in the result dataframe. The MAPE (our main perfomance measure in this case) lies at 0.13, which is even lower than the random forest model. Also for the two other parameter the results of the xgboost model are better.
+
+```{r xgboost results}
+result[4,3]<-round(rmse(real=whole_data$holdout$price, predicted = test_xgb), digits=0)
+result[4,4]<-round(mae(real=whole_data$holdout$price, predicted = test_xgb), digits=0)
+result[4,5]<-round(mape(real=whole_data$holdout$price, predicted = test_xgb), digits=4)
+datatable(result)
+```
+
+### 1.5 Baseline conclusion
+
+Comparing the four models we see that the best baseline is achieved by using an boosting tree model (xgboost). Thus for feature engineering all features will be evaluated by using the xgboost model. In a final step hyperparameter tuning will be performed for xgboost.

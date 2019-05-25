@@ -12,3 +12,4 @@ mape<-function(real,predicted){
 rmse<-function(real,predicted){
   return(sqrt(mean((real-predicted)^2)))
 }
+
