@@ -155,8 +155,8 @@ source('notebooks/metrics.R')</code></pre>
 <pre class="r"><code>train_data&lt;-fread('data/data_train_dummy.csv', stringsAsFactors = F)
 test_data&lt;-fread('data/data_test_dummy.csv', stringsAsFactors = F)
 
-train_data$date&lt;-as.Date(train_data$date, &quot;%m/%d/%Y&quot;)
-test_data$date&lt;-as.Date(test_data$date, &quot;%m/%d/%Y&quot;)</code></pre>
+train_data$date&lt;-as.Date(train_data$date)
+test_data$date&lt;-as.Date(test_data$date)</code></pre>
 </div>
 <div id="splitting-dataset" class="section level4">
 <h4>Splitting dataset</h4>
@@ -756,70 +756,11 @@ datatable(result)</code></pre>
 <div id="trained-random-forest-model-1" class="section level4">
 <h4>1.4.1 Trained random forest model</h4>
 <p>The model uses cross validation with 5 folds. Since R2 is not a default parameter for xgboost but only RMSE it was not possible to construct it from the model. I tried to access the training predictions of the model but I did not manage to find it. We can not use the model to predict on the train data and then use these predicitons because the model was trained on it. The R2 result would lie around 0.96 (I tried it). Thus for now the R2 will remain empty.</p>
-<pre class="r"><code>xgb_trcontrol = trainControl(
-  method = &quot;cv&quot;,
-  number = 5,  
-  allowParallel = TRUE,
-  verboseIter = FALSE,
-  returnData = FALSE
-)
-
-xgb&lt;-xgboost(booster='gbtree',
+<pre class="r"><code>xgb&lt;-xgboost(booster='gbtree',
                data=as.matrix(whole_data$train[, !'price', with=F]),
                label=whole_data$train$price,
                nrounds = 50,
-               objective='reg:linear',
-               trControl = xgb_trcontrol)</code></pre>
-<pre><code>## [1]  train-rmse:473331.593750 
-## [2]  train-rmse:350122.375000 
-## [3]  train-rmse:265214.406250 
-## [4]  train-rmse:208466.921875 
-## [5]  train-rmse:170442.375000 
-## [6]  train-rmse:145883.687500 
-## [7]  train-rmse:129810.992188 
-## [8]  train-rmse:118638.210938 
-## [9]  train-rmse:111375.195312 
-## [10] train-rmse:106135.781250 
-## [11] train-rmse:102530.210938 
-## [12] train-rmse:99926.914062 
-## [13] train-rmse:97609.617188 
-## [14] train-rmse:94327.906250 
-## [15] train-rmse:93071.187500 
-## [16] train-rmse:91393.437500 
-## [17] train-rmse:90365.734375 
-## [18] train-rmse:89175.781250 
-## [19] train-rmse:87814.046875 
-## [20] train-rmse:87070.429688 
-## [21] train-rmse:86283.789062 
-## [22] train-rmse:85379.273438 
-## [23] train-rmse:84341.914062 
-## [24] train-rmse:83617.882812 
-## [25] train-rmse:82629.609375 
-## [26] train-rmse:82026.382812 
-## [27] train-rmse:81410.398438 
-## [28] train-rmse:80782.570312 
-## [29] train-rmse:80074.906250 
-## [30] train-rmse:79488.554688 
-## [31] train-rmse:78768.242188 
-## [32] train-rmse:78421.812500 
-## [33] train-rmse:77571.343750 
-## [34] train-rmse:76960.703125 
-## [35] train-rmse:76295.000000 
-## [36] train-rmse:75771.132812 
-## [37] train-rmse:75292.960938 
-## [38] train-rmse:75010.375000 
-## [39] train-rmse:74492.914062 
-## [40] train-rmse:73908.007812 
-## [41] train-rmse:73232.671875 
-## [42] train-rmse:72832.843750 
-## [43] train-rmse:72300.734375 
-## [44] train-rmse:71613.765625 
-## [45] train-rmse:71337.679688 
-## [46] train-rmse:71054.671875 
-## [47] train-rmse:70812.609375 
-## [48] train-rmse:70358.359375 
-## [49] train-rmse:69941.085938 
-## [50] train-rmse:69570.429688</code></pre>
+               objective='reg:linear')</code></pre>
 <pre class="r"><code>print(xgb)</code></pre>
 <pre><code>## ##### xgb.Booster
 ## raw: 175.1 Kb 
@@ -828,15 +769,9 @@ xgb&lt;-xgboost(booster='gbtree',
 ##     watchlist = watchlist, verbose = verbose, print_every_n = print_every_n, 
 ##     early_stopping_rounds = early_stopping_rounds, maximize = maximize, 
 ##     save_period = save_period, save_name = save_name, xgb_model = xgb_model, 
-##     callbacks = callbacks, booster = &quot;gbtree&quot;, objective = &quot;reg:linear&quot;, 
-##     trControl = ..3)
+##     callbacks = callbacks, booster = &quot;gbtree&quot;, objective = &quot;reg:linear&quot;)
 ## params (as set within xgb.train):
-##   booster = &quot;gbtree&quot;, objective = &quot;reg:linear&quot;, trControl = &quot;cv&quot;, silent = &quot;5&quot;, booster = &quot;NA&quot;, objective = &quot;grid&quot;, trControl = &quot;0.75&quot;, silent = &quot;1&quot;, booster = &quot;TRUE&quot;, objective = &quot;0&quot;, trControl = &quot;FALSE&quot;, silent = &quot;FALSE&quot;, booster = &quot;final&quot;, objective = &quot;FALSE&quot;, trControl = &quot;FALSE&quot;, silent = &quot;function (data, lev = NULL, model = NULL) 
-## {
-##     if (is.character(data$obs)) 
-##         data$obs &lt;- factor(data$obs, levels = lev)
-##     postResample(data[, &quot;pred&quot;], data[, &quot;obs&quot;])
-## }&quot;, booster = &quot;best&quot;, objective = &quot;0.95&quot;, trControl = &quot;3&quot;, silent = &quot;5&quot;, booster = &quot;19&quot;, objective = &quot;10&quot;, trControl = &quot;0.9&quot;, silent = &quot;0&quot;, booster = &quot;FALSE&quot;, objective = &quot;FALSE&quot;, trControl = &quot;NA&quot;, silent = &quot;5&quot;, booster = &quot;0.05&quot;, objective = &quot;gls&quot;, trControl = &quot;TRUE&quot;, silent = &quot;FALSE&quot;, booster = &quot;TRUE&quot;, objective = &quot;1&quot;
+##   booster = &quot;gbtree&quot;, objective = &quot;reg:linear&quot;, silent = &quot;1&quot;
 ## xgb.attributes:
 ##   niter
 ## callbacks:
@@ -860,7 +795,112 @@ result[4,2]&lt;-NA</code></pre>
 </div>
 <div id="cross-validation-3" class="section level4">
 <h4>1.4.2 Cross validation</h4>
-<p>Cross validation is already included in the trained model.</p>
+<p>Xgboost is a powerful algorithm but brings in the thread of overfitting. We already see by looking at the RMSE that the score is much higher for train than test data. Nevertheless the RMSE score in the last iteration is with approx. 125,000 much lower than the test scores for the other three models (lm, glmnet, rf).</p>
+<pre class="r"><code>xgb_cv &lt;- xgb.cv(objective='reg:linear',
+                  data=as.matrix(whole_data$train[, !'price', with=F]),
+                  label=whole_data$train$price,
+                  nrounds = 100, 
+                  nfold = 5)</code></pre>
+<pre><code>## [1]  train-rmse:473716.925000+1076.472138    test-rmse:477164.806250+5676.669144 
+## [2]  train-rmse:350347.631250+1057.620196    test-rmse:355664.975000+4433.481065 
+## [3]  train-rmse:265895.962500+857.161803 test-rmse:275017.418750+4906.871495 
+## [4]  train-rmse:208466.287500+686.743947 test-rmse:222569.337500+6051.356155 
+## [5]  train-rmse:170506.303125+872.620473 test-rmse:189070.912500+7688.922814 
+## [6]  train-rmse:145119.056250+740.553395 test-rmse:167781.700000+7524.220626 
+## [7]  train-rmse:128415.954688+821.655757 test-rmse:154985.009375+7523.287463 
+## [8]  train-rmse:117559.826562+1001.746546    test-rmse:147499.196875+7385.826026 
+## [9]  train-rmse:110161.173438+1167.844695    test-rmse:142729.965625+6729.789705 
+## [10] train-rmse:104922.107812+1197.969537    test-rmse:139290.096875+6922.918677 
+## [11] train-rmse:101106.675000+993.643489 test-rmse:137412.464062+6773.192649 
+## [12] train-rmse:97929.110937+951.228768  test-rmse:135596.965625+6672.880934 
+## [13] train-rmse:95182.489062+1130.733312 test-rmse:133933.003125+5913.877938 
+## [14] train-rmse:93460.076562+1054.494838 test-rmse:133170.235938+5869.807243 
+## [15] train-rmse:91562.362500+747.203368  test-rmse:132136.564062+6095.833940 
+## [16] train-rmse:90271.978125+471.877101  test-rmse:131709.243750+6373.092867 
+## [17] train-rmse:88918.895312+873.839895  test-rmse:131280.840625+6290.808753 
+## [18] train-rmse:87677.707813+967.118694  test-rmse:130898.821875+6262.390984 
+## [19] train-rmse:86836.517187+906.060117  test-rmse:130610.207813+6245.003616 
+## [20] train-rmse:85733.679688+1226.045020 test-rmse:130326.150000+6205.294634 
+## [21] train-rmse:84732.314062+1144.817985 test-rmse:129907.648437+6316.197582 
+## [22] train-rmse:83800.939062+1079.479974 test-rmse:129902.481250+6357.238645 
+## [23] train-rmse:82963.673437+1057.261296 test-rmse:129654.792188+6383.561335 
+## [24] train-rmse:82125.128125+1105.836341 test-rmse:129534.589063+6402.003009 
+## [25] train-rmse:81399.528125+1036.578393 test-rmse:129260.945313+6431.929895 
+## [26] train-rmse:80664.676562+1139.942470 test-rmse:129048.201562+6448.621761 
+## [27] train-rmse:79837.087500+1115.348368 test-rmse:128898.318750+6360.449250 
+## [28] train-rmse:79064.248438+1049.505499 test-rmse:128690.059375+6283.561579 
+## [29] train-rmse:78475.335938+990.097200  test-rmse:128529.654687+6302.162588 
+## [30] train-rmse:77768.381250+1209.889436 test-rmse:128333.618750+6288.310168 
+## [31] train-rmse:77225.726562+1226.673894 test-rmse:128258.820313+6265.636475 
+## [32] train-rmse:76468.487500+1170.299197 test-rmse:128176.262500+6322.998491 
+## [33] train-rmse:75775.881250+977.782466  test-rmse:128027.271875+6364.813489 
+## [34] train-rmse:75129.118750+938.142026  test-rmse:127953.500000+6353.642228 
+## [35] train-rmse:74635.937500+969.327095  test-rmse:127826.717188+6347.385047 
+## [36] train-rmse:74168.639063+1008.877119 test-rmse:127684.453125+6304.535337 
+## [37] train-rmse:73647.006250+889.720239  test-rmse:127588.921875+6299.433730 
+## [38] train-rmse:73148.770312+877.695826  test-rmse:127565.359375+6410.795176 
+## [39] train-rmse:72501.743750+879.669533  test-rmse:127479.689062+6412.265829 
+## [40] train-rmse:71918.615625+855.016076  test-rmse:127410.814063+6407.869189 
+## [41] train-rmse:71231.507813+890.083048  test-rmse:127296.898438+6431.198608 
+## [42] train-rmse:70814.107812+898.802115  test-rmse:127256.245313+6416.158956 
+## [43] train-rmse:70319.434375+802.802257  test-rmse:127152.226562+6437.793470 
+## [44] train-rmse:69775.415625+886.141305  test-rmse:126976.585937+6569.942553 
+## [45] train-rmse:69316.476562+906.452673  test-rmse:126938.850000+6536.682515 
+## [46] train-rmse:69011.375000+844.923963  test-rmse:126906.873437+6504.744668 
+## [47] train-rmse:68450.979688+982.025542  test-rmse:126767.685937+6416.661992 
+## [48] train-rmse:67928.159375+1017.491960 test-rmse:126721.457813+6536.153994 
+## [49] train-rmse:67611.704687+1071.908575 test-rmse:126696.612500+6567.463848 
+## [50] train-rmse:67001.004687+1002.228274 test-rmse:126632.614062+6576.788805 
+## [51] train-rmse:66612.242187+1054.970578 test-rmse:126660.212500+6604.632503 
+## [52] train-rmse:66151.780469+974.040420  test-rmse:126639.584375+6582.521472 
+## [53] train-rmse:65687.060156+1039.062072 test-rmse:126595.732813+6594.256228 
+## [54] train-rmse:65319.664844+1060.462679 test-rmse:126606.998437+6514.991112 
+## [55] train-rmse:65068.770312+1039.125049 test-rmse:126596.614063+6545.079500 
+## [56] train-rmse:64734.359375+933.272513  test-rmse:126532.917188+6448.410626 
+## [57] train-rmse:64328.214062+954.488018  test-rmse:126512.387500+6409.607235 
+## [58] train-rmse:64013.968750+871.584261  test-rmse:126556.651563+6363.806979 
+## [59] train-rmse:63646.619531+818.220727  test-rmse:126547.318750+6363.399223 
+## [60] train-rmse:63299.914844+811.962315  test-rmse:126460.806250+6344.969192 
+## [61] train-rmse:62799.427344+627.643054  test-rmse:126473.500000+6375.229261 
+## [62] train-rmse:62520.082031+622.012801  test-rmse:126435.982813+6357.747531 
+## [63] train-rmse:62267.088281+603.512582  test-rmse:126399.709375+6352.625907 
+## [64] train-rmse:61867.644531+673.826413  test-rmse:126374.132813+6378.438437 
+## [65] train-rmse:61595.017188+707.761207  test-rmse:126328.796875+6375.604570 
+## [66] train-rmse:61299.931250+737.042459  test-rmse:126393.426563+6449.974030 
+## [67] train-rmse:61035.194531+790.870920  test-rmse:126374.570312+6428.197152 
+## [68] train-rmse:60600.486719+768.558225  test-rmse:126365.270313+6447.514463 
+## [69] train-rmse:60339.088281+679.986302  test-rmse:126306.051562+6451.598519 
+## [70] train-rmse:59954.128906+669.531216  test-rmse:126224.207812+6464.305257 
+## [71] train-rmse:59602.767969+658.407237  test-rmse:126170.165625+6491.312080 
+## [72] train-rmse:59289.899219+691.831485  test-rmse:126154.437500+6469.380018 
+## [73] train-rmse:59010.674219+707.414636  test-rmse:126219.648437+6495.161974 
+## [74] train-rmse:58738.225000+638.702516  test-rmse:126227.332813+6519.107596 
+## [75] train-rmse:58475.900781+593.122073  test-rmse:126257.409375+6504.359705 
+## [76] train-rmse:58176.167188+642.840577  test-rmse:126283.589063+6456.303429 
+## [77] train-rmse:57892.525000+645.900122  test-rmse:126243.948438+6442.180493 
+## [78] train-rmse:57478.662500+639.447056  test-rmse:126122.689062+6455.431048 
+## [79] train-rmse:57263.505469+670.113211  test-rmse:126115.948437+6444.491140 
+## [80] train-rmse:56973.442188+586.041311  test-rmse:126131.965625+6487.935037 
+## [81] train-rmse:56682.319531+538.993984  test-rmse:126117.900000+6424.527098 
+## [82] train-rmse:56450.192969+506.883188  test-rmse:126105.571875+6420.456326 
+## [83] train-rmse:56123.100781+479.251574  test-rmse:126109.503125+6420.879046 
+## [84] train-rmse:55779.465625+455.919989  test-rmse:126100.040625+6442.193134 
+## [85] train-rmse:55457.514844+416.613436  test-rmse:126066.234375+6422.907359 
+## [86] train-rmse:55235.911719+448.451434  test-rmse:126082.534375+6431.254208 
+## [87] train-rmse:55024.639844+478.087152  test-rmse:126104.043750+6460.499962 
+## [88] train-rmse:54806.836719+498.748324  test-rmse:126161.864062+6483.827586 
+## [89] train-rmse:54490.392188+555.866650  test-rmse:126128.926563+6494.381181 
+## [90] train-rmse:54150.184375+610.886614  test-rmse:126167.868750+6454.943076 
+## [91] train-rmse:53858.360156+645.651387  test-rmse:126192.306250+6454.631933 
+## [92] train-rmse:53707.429687+635.201892  test-rmse:126194.856250+6427.996931 
+## [93] train-rmse:53537.085938+619.944208  test-rmse:126214.921875+6387.500278 
+## [94] train-rmse:53326.290625+611.574438  test-rmse:126199.232812+6366.355359 
+## [95] train-rmse:53145.450781+619.566278  test-rmse:126179.067188+6330.724575 
+## [96] train-rmse:52880.871875+492.586274  test-rmse:126169.984375+6300.363233 
+## [97] train-rmse:52716.556250+527.013862  test-rmse:126189.159375+6293.512798 
+## [98] train-rmse:52485.363281+414.233301  test-rmse:126171.843750+6309.842676 
+## [99] train-rmse:52232.372656+405.715890  test-rmse:126193.782812+6322.139393 
+## [100]    train-rmse:52056.852344+441.481772  test-rmse:126201.528125+6272.537637</code></pre>
 </div>
 <div id="test-performance-3" class="section level4">
 <h4>1.4.3 Test performance</h4>
@@ -884,7 +924,7 @@ ggplot(df_test, aes(x=price,y=test_xgb))+
 </div>
 <div id="result-overview-3" class="section level4">
 <h4>1.4.5 Result overview</h4>
-<p>Finally the results are calculated and saved in the result dataframe. The MAPE (our main perfomance measure in this case) lies at 0.13, which is even lower than the random forest model. Also for the two other parameter the results of the xgboost model are better.</p>
+<p>Finally the results are calculated and saved in the result dataframe. The MAPE (our main perfomance measure in this case) lies at 0.13, which is even lower than the random forest model. Also for the two other parameter the results of the xgboost model are better. We actually see that the test RSME score is above out test RSME score from the cross validation. This shows us that the model is tending to overfit.</p>
 <pre class="r"><code>result[4,3]&lt;-round(rmse(real=whole_data$holdout$price, predicted = test_xgb), digits=0)
 result[4,4]&lt;-round(mae(real=whole_data$holdout$price, predicted = test_xgb), digits=0)
 result[4,5]&lt;-round(mape(real=whole_data$holdout$price, predicted = test_xgb), digits=4)
@@ -896,6 +936,184 @@ datatable(result)</code></pre>
 <div id="baseline-conclusion" class="section level3">
 <h3>1.5 Baseline conclusion</h3>
 <p>Comparing the four models we see that the best baseline is achieved by using an boosting tree model (xgboost). Thus for feature engineering all features will be evaluated by using the xgboost model. In a final step hyperparameter tuning will be performed for xgboost.</p>
+</div>
+</div>
+<div id="feature-engineering" class="section level2">
+<h2>2. Feature engineering</h2>
+<p>In the next step new features are created and the models performance is evaluated for each feature. All features that improve the baseline will be included in the final data set. Thus first of all a copy of our train and holdout data set is created as well as a result table that stores the performance measures for each feature engineering steps.</p>
+<pre class="r"><code>fe_results&lt;-as.data.frame(result[4,c(1,3:5)])
+
+train_fe&lt;-whole_data$train
+test_fe&lt;-whole_data$holdout
+
+df_test_fe&lt;-as.data.frame(test_fe$price)
+names(df_test_fe)[1]&lt;-paste(&quot;price&quot;)</code></pre>
+<p>All new features are created with functions which makes it easier to apply them to all the data sets. The functions are saved in a separate notebook and loaded in the next step.</p>
+<pre class="r"><code>source('notebooks/feature_engineering.R')</code></pre>
+<div id="basement" class="section level3">
+<h3>2.1 Basement</h3>
+<p>Since many of the houses have a basement size of zero, we can assume that all these houses do not have a zero. Thus a possibility is to replace the numerical variable sqft_basement with a boolean variable that indicates if the house has a basement or not. From a logical point of view it does not seem too important how big a basement is but rather if the house has a basement at all. Thus a new feature is created called basement and the old feature sqft_basement is excluded.</p>
+<pre class="r"><code>train_fe&lt;-basement(train_fe)
+test_fe&lt;-basement(test_fe)</code></pre>
+<p>The xgboost model in now trained with the new boolean variable basement but without the old variable sqft_basement.</p>
+<pre class="r"><code>xgb_basement&lt;-xgboost(booster='gbtree',
+               data=as.matrix(train_fe[, !'price', with=F]),
+               label=train_fe$price,
+               nrounds = 50,
+               objective='reg:linear')
+
+test_xgb_basement&lt;-predict(xgb_basement, newdata = as.matrix(test_fe[, !'price', with=F]), type='response')
+
+
+df_test_fe&lt;-cbind(df_test_fe, test_xgb_basement)
+
+fe_results[2,1]&lt;-&quot;basement&quot;
+fe_results[2,2]&lt;-round(rmse(real=df_test_fe$price, predicted = df_test_fe$test_xgb_basement), digits=0)
+fe_results[2,3]&lt;-round(mae(real=df_test_fe$price, predicted = test_xgb_basement), digits=0)
+fe_results[2,4]&lt;-round(mape(real=df_test_fe$price, predicted = test_xgb_basement), digits=4)</code></pre>
+<pre class="r"><code>datatable(fe_results)</code></pre>
+<p><div id="htmlwidget-9063de772586d83afa37" style="width:100%;height:auto;" class="datatables html-widget"></div>
+<script type="application/json" data-for="htmlwidget-9063de772586d83afa37">{"x":{"filter":"none","data":[["1","2"],["xgb","basement"],[137767,131654],[67966,67801],[0.1296,0.1309]],"container":"<table class=\"display\">\n  <thead>\n    <tr>\n      <th> <\/th>\n      <th>method<\/th>\n      <th>RMSE<\/th>\n      <th>MAE<\/th>\n      <th>MAPE<\/th>\n    <\/tr>\n  <\/thead>\n<\/table>","options":{"columnDefs":[{"className":"dt-right","targets":[2,3,4]},{"orderable":false,"targets":0}],"order":[],"autoWidth":false,"orderClasses":false}},"evals":[],"jsHooks":[]}</script> We see that the with including the boolean basement feature the RMSE and the MAE slightly improved while the MAPE actually worsened and is now above 0.13. Since the MAPE is our preferred metric for this case the basement variable will not be included.</p>
+</div>
+<div id="rennovation" class="section level3">
+<h3>2.2 Rennovation</h3>
+<p>Similiar to the basement feature, there are many houses that show a 0 for their renovation year meaning they have never been rennovated. However, for renovations time actually matters. We can assume that a renovation during the last ten years is more valuable than one that was 20 years ago. Thus a new boolean feature is created that flaggs all houses that were rennovated during the last ten years (since 2005).</p>
+<pre class="r"><code>train_fe&lt;-whole_data$train
+test_fe&lt;-whole_data$holdout
+
+train_fe&lt;-renovated(train_fe)
+test_fe&lt;-renovated(test_fe)</code></pre>
+<p>The xgboost model in now trained with the new boolean variable renovated but without the old variable yr_renovated.</p>
+<pre class="r"><code>xgb_renovated&lt;-xgboost(booster='gbtree',
+               data=as.matrix(train_fe[, !'price', with=F]),
+               label=train_fe$price,
+               nrounds = 50,
+               objective='reg:linear')
+
+test_xgb_renovated&lt;-predict(xgb_renovated, newdata = as.matrix(test_fe[, !'price', with=F]), type='response')
+
+
+df_test_fe&lt;-cbind(df_test_fe, test_xgb_renovated)
+
+fe_results[3,1]&lt;-&quot;renovated&quot;
+fe_results[3,2]&lt;-round(rmse(real=df_test_fe$price, predicted = df_test_fe$test_xgb_renovated), digits=0)
+fe_results[3,3]&lt;-round(mae(real=df_test_fe$price, predicted = df_test_fe$test_xgb_renovated), digits=0)
+fe_results[3,4]&lt;-round(mape(real=df_test_fe$price, predicted = df_test_fe$test_xgb_renovated), digits=4)</code></pre>
+<pre class="r"><code>datatable(fe_results)</code></pre>
+<p><div id="htmlwidget-9bc254273adfdde8f341" style="width:100%;height:auto;" class="datatables html-widget"></div>
+<script type="application/json" data-for="htmlwidget-9bc254273adfdde8f341">{"x":{"filter":"none","data":[["1","2","3"],["xgb","basement","renovated"],[137767,131654,144112],[67966,67801,68041],[0.1296,0.1309,0.1305]],"container":"<table class=\"display\">\n  <thead>\n    <tr>\n      <th> <\/th>\n      <th>method<\/th>\n      <th>RMSE<\/th>\n      <th>MAE<\/th>\n      <th>MAPE<\/th>\n    <\/tr>\n  <\/thead>\n<\/table>","options":{"columnDefs":[{"className":"dt-right","targets":[2,3,4]},{"orderable":false,"targets":0}],"order":[],"autoWidth":false,"orderClasses":false}},"evals":[],"jsHooks":[]}</script> This feature shows worse values for all three performance measures and thus is not included in the model.</p>
+</div>
+<div id="viewing" class="section level3">
+<h3>2.3 Viewing</h3>
+<p>In the data exploration the feature view showed a high skewness. Most houeses had not been viewed before the sale leaving many houses with zero views. Thus a possibility is to create a feature that shows if a house has been viewed or not and with this combining all the views from 1 to 4. A way to create such a boolean feature is to only include the encoded feature view_0 and excluding the feature view_1 to view_4.</p>
+<pre class="r"><code>train_fe&lt;-whole_data$train
+test_fe&lt;-whole_data$holdout
+
+train_fe&lt;-viewed(train_fe)
+test_fe&lt;-viewed(test_fe)</code></pre>
+<p>The xgboost model in now trained excluding the variables view_1 to view_4</p>
+<pre class="r"><code>xgb_viewed&lt;-xgboost(booster='gbtree',
+               data=as.matrix(train_fe[, !'price', with=F]),
+               label=train_fe$price,
+               nrounds = 50,
+               objective='reg:linear')
+
+test_xgb_viewed&lt;-predict(xgb_viewed, newdata = as.matrix(test_fe[, !'price', with=F]), type='response')
+
+
+df_test_fe&lt;-cbind(df_test_fe, test_xgb_viewed)
+
+fe_results[4,1]&lt;-&quot;viewed&quot;
+fe_results[4,2]&lt;-round(rmse(real=df_test_fe$price, predicted = df_test_fe$test_xgb_viewed), digits=0)
+fe_results[4,3]&lt;-round(mae(real=df_test_fe$price, predicted = df_test_fe$test_xgb_viewed), digits=0)
+fe_results[4,4]&lt;-round(mape(real=df_test_fe$price, predicted = df_test_fe$test_xgb_viewed), digits=4)</code></pre>
+<pre class="r"><code>datatable(fe_results)</code></pre>
+<p><div id="htmlwidget-84b896f82b21537bc036" style="width:100%;height:auto;" class="datatables html-widget"></div>
+<script type="application/json" data-for="htmlwidget-84b896f82b21537bc036">{"x":{"filter":"none","data":[["1","2","3","4"],["xgb","basement","renovated","viewed"],[137767,131654,144112,139119],[67966,67801,68041,68723],[0.1296,0.1309,0.1305,0.1324]],"container":"<table class=\"display\">\n  <thead>\n    <tr>\n      <th> <\/th>\n      <th>method<\/th>\n      <th>RMSE<\/th>\n      <th>MAE<\/th>\n      <th>MAPE<\/th>\n    <\/tr>\n  <\/thead>\n<\/table>","options":{"columnDefs":[{"className":"dt-right","targets":[2,3,4]},{"orderable":false,"targets":0}],"order":[],"autoWidth":false,"orderClasses":false}},"evals":[],"jsHooks":[]}</script> Also this step worsens all three performance scores compared to the baseline.</p>
+</div>
+<div id="sqft-living-comparison" class="section level3">
+<h3>2.4 Sqft living comparison</h3>
+<p>The variable sqft_living15 indicates the living size of the nearest 15 houses and thus is a good benchmark for the area around the actual house. Is the living size above this value then the house is comparably larger than the ones around and the other way around. Thus a new feature is created calculating the ratio between the living size of the house and its 15 nearest neighbors. A value below 1 means that the house is on average smaller compared to its neighbors while a value above 1 means is on average lager.</p>
+<pre class="r"><code>train_fe&lt;-whole_data$train
+test_fe&lt;-whole_data$holdout
+
+train_fe&lt;-living_comp(train_fe)
+test_fe&lt;-living_comp(test_fe)</code></pre>
+<p>The xgboost model in now trained inclduing the new ratio variable and excluding the variables sqft_living15.</p>
+<pre class="r"><code>xgb_livcomp&lt;-xgboost(booster='gbtree',
+               data=as.matrix(train_fe[, !'price', with=F]),
+               label=train_fe$price,
+               nrounds = 50,
+               objective='reg:linear')
+
+test_xgb_livcomp&lt;-predict(xgb_livcomp, newdata = as.matrix(test_fe[, !'price', with=F]), type='response')
+
+
+df_test_fe&lt;-cbind(df_test_fe, test_xgb_livcomp)
+
+fe_results[5,1]&lt;-&quot;living_comp&quot;
+fe_results[5,2]&lt;-round(rmse(real=df_test_fe$price, predicted = df_test_fe$test_xgb_livcomp), digits=0)
+fe_results[5,3]&lt;-round(mae(real=df_test_fe$price, predicted = df_test_fe$test_xgb_livcomp), digits=0)
+fe_results[5,4]&lt;-round(mape(real=df_test_fe$price, predicted = df_test_fe$test_xgb_livcomp), digits=4)</code></pre>
+<pre class="r"><code>datatable(fe_results)</code></pre>
+<p><div id="htmlwidget-4c0700aa7935ceeb519e" style="width:100%;height:auto;" class="datatables html-widget"></div>
+<script type="application/json" data-for="htmlwidget-4c0700aa7935ceeb519e">{"x":{"filter":"none","data":[["1","2","3","4","5"],["xgb","basement","renovated","viewed","living_comp"],[137767,131654,144112,139119,140319],[67966,67801,68041,68723,68995],[0.1296,0.1309,0.1305,0.1324,0.1312]],"container":"<table class=\"display\">\n  <thead>\n    <tr>\n      <th> <\/th>\n      <th>method<\/th>\n      <th>RMSE<\/th>\n      <th>MAE<\/th>\n      <th>MAPE<\/th>\n    <\/tr>\n  <\/thead>\n<\/table>","options":{"columnDefs":[{"className":"dt-right","targets":[2,3,4]},{"orderable":false,"targets":0}],"order":[],"autoWidth":false,"orderClasses":false}},"evals":[],"jsHooks":[]}</script> Also this feature does not improve the performance measures and is thus not included in the model.</p>
+</div>
+<div id="sqft-lot-comparison" class="section level3">
+<h3>2.5 Sqft lot comparison</h3>
+<p>A similiar feature for the lot size is created as the one for living size in 2.4.</p>
+<pre class="r"><code>train_fe&lt;-whole_data$train
+test_fe&lt;-whole_data$holdout
+
+train_fe&lt;-lot_comp(train_fe)
+test_fe&lt;-lot_comp(test_fe)</code></pre>
+<p>The xgboost model in now trained inclduing the new ratio variable and excluding the variables sqft_lot15.</p>
+<pre class="r"><code>xgb_lotcomp&lt;-xgboost(booster='gbtree',
+               data=as.matrix(train_fe[, !'price', with=F]),
+               label=train_fe$price,
+               nrounds = 50,
+               objective='reg:linear')
+
+test_xgb_lotcomp&lt;-predict(xgb_lotcomp, newdata = as.matrix(test_fe[, !'price', with=F]), type='response')
+
+
+df_test_fe&lt;-cbind(df_test_fe, test_xgb_lotcomp)
+
+fe_results[6,1]&lt;-&quot;lot_comp&quot;
+fe_results[6,2]&lt;-round(rmse(real=df_test_fe$price, predicted = df_test_fe$test_xgb_lotcomp), digits=0)
+fe_results[6,3]&lt;-round(mae(real=df_test_fe$price, predicted = df_test_fe$test_xgb_lotcomp), digits=0)
+fe_results[6,4]&lt;-round(mape(real=df_test_fe$price, predicted = df_test_fe$test_xgb_lotcomp), digits=4)</code></pre>
+<pre class="r"><code>datatable(fe_results)</code></pre>
+<p><div id="htmlwidget-f17e165c981a8644b228" style="width:100%;height:auto;" class="datatables html-widget"></div>
+<script type="application/json" data-for="htmlwidget-f17e165c981a8644b228">{"x":{"filter":"none","data":[["1","2","3","4","5","6"],["xgb","basement","renovated","viewed","living_comp","lot_comp"],[137767,131654,144112,139119,140319,148685],[67966,67801,68041,68723,68995,69581],[0.1296,0.1309,0.1305,0.1324,0.1312,0.1319]],"container":"<table class=\"display\">\n  <thead>\n    <tr>\n      <th> <\/th>\n      <th>method<\/th>\n      <th>RMSE<\/th>\n      <th>MAE<\/th>\n      <th>MAPE<\/th>\n    <\/tr>\n  <\/thead>\n<\/table>","options":{"columnDefs":[{"className":"dt-right","targets":[2,3,4]},{"orderable":false,"targets":0}],"order":[],"autoWidth":false,"orderClasses":false}},"evals":[],"jsHooks":[]}</script> Also this feature does not improve the performance measures and is thus not included in the model.</p>
+</div>
+<div id="decade-of-building-year" class="section level3">
+<h3>2.6 Decade of building year</h3>
+<p>As we have seen during the data exploration, the average prices of houses tended to drop depending if the house was build during mid 20th century. Thus instead of the building year a new feature is included that states the decade in which the house was built.</p>
+<pre class="r"><code>train_fe&lt;-whole_data$train
+test_fe&lt;-whole_data$holdout
+
+train_fe&lt;-decade(train_fe)
+test_fe&lt;-decade(test_fe)</code></pre>
+<p>The xgboost model in now trained inclduing the decade variable and excluding the variables yr_built.</p>
+<pre class="r"><code>xgb_decade&lt;-xgboost(booster='gbtree',
+               data=as.matrix(train_fe[, !'price', with=F]),
+               label=train_fe$price,
+               nrounds = 50,
+               objective='reg:linear')
+
+test_xgb_decade&lt;-predict(xgb_decade, newdata = as.matrix(test_fe[, !'price', with=F]), type='response')
+
+
+df_test_fe&lt;-cbind(df_test_fe, test_xgb_decade)
+
+fe_results[7,1]&lt;-&quot;decade&quot;
+fe_results[7,2]&lt;-round(rmse(real=df_test_fe$price, predicted = df_test_fe$test_xgb_decade), digits=0)
+fe_results[7,3]&lt;-round(mae(real=df_test_fe$price, predicted = df_test_fe$test_xgb_decade), digits=0)
+fe_results[7,4]&lt;-round(mape(real=df_test_fe$price, predicted = df_test_fe$test_xgb_decade), digits=4)</code></pre>
+<pre class="r"><code>datatable(fe_results)</code></pre>
+<p><div id="htmlwidget-475733e8f37b89ce1b07" style="width:100%;height:auto;" class="datatables html-widget"></div>
+<script type="application/json" data-for="htmlwidget-475733e8f37b89ce1b07">{"x":{"filter":"none","data":[["1","2","3","4","5","6","7"],["xgb","basement","renovated","viewed","living_comp","lot_comp","decade"],[137767,131654,144112,139119,140319,148685,137988],[67966,67801,68041,68723,68995,69581,67618],[0.1296,0.1309,0.1305,0.1324,0.1312,0.1319,0.1308]],"container":"<table class=\"display\">\n  <thead>\n    <tr>\n      <th> <\/th>\n      <th>method<\/th>\n      <th>RMSE<\/th>\n      <th>MAE<\/th>\n      <th>MAPE<\/th>\n    <\/tr>\n  <\/thead>\n<\/table>","options":{"columnDefs":[{"className":"dt-right","targets":[2,3,4]},{"orderable":false,"targets":0}],"order":[],"autoWidth":false,"orderClasses":false}},"evals":[],"jsHooks":[]}</script> Also this feature does not improve the performance measures and is thus not included in the model.</p>
 </div>
 </div>
 

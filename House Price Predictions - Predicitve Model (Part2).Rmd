@@ -5,6 +5,8 @@ date: "26 May 2019"
 output: html_document
 ---
 
+This project can be found within the following GitHub repository [link](https://github.com/cutendorf/House-Prices-R).
+
 ## 0. Sources and data loading
 
 #### Notebook loading
@@ -28,8 +30,8 @@ From the data preparation and exploration part the prepared train and test data 
 train_data<-fread('data/data_train_dummy.csv', stringsAsFactors = F)
 test_data<-fread('data/data_test_dummy.csv', stringsAsFactors = F)
 
-train_data$date<-as.Date(train_data$date, "%m/%d/%Y")
-test_data$date<-as.Date(test_data$date, "%m/%d/%Y")
+train_data$date<-as.Date(train_data$date)
+test_data$date<-as.Date(test_data$date)
 ```
 
 #### Splitting dataset
@@ -305,21 +307,16 @@ The last baseline model is a tree based xgboost model.
 #### 1.4.1 Trained random forest model
 The model uses cross validation with 5 folds. Since R2 is not a default parameter for xgboost but only RMSE it was not possible to construct it from the model. I tried to access the training predictions of the model but I did not manage to find it. We can not use the model to predict on the train data and then use these predicitons because the model was trained on it. The R2 result would lie around 0.96 (I tried it). Thus for now the R2 will remain empty.
 
-```{r xgboost, warning=FALSE, message=FALSE}
-xgb_trcontrol = trainControl(
-  method = "cv",
-  number = 5,  
-  allowParallel = TRUE,
-  verboseIter = FALSE,
-  returnData = FALSE
-)
-
+```{r xgboost, warning=FALSE, message=FALSE, results=FALSE}
 xgb<-xgboost(booster='gbtree',
                data=as.matrix(whole_data$train[, !'price', with=F]),
                label=whole_data$train$price,
-               nrounds = 50,
-               objective='reg:linear',
-               trControl = xgb_trcontrol)
+               nrounds = 100,
+               objective='reg:linear')
+
+```
+
+```{r xgboost train results}
 print(xgb)
 
 #training_predictions = ???
@@ -327,14 +324,18 @@ print(xgb)
 #rsq <- res[2]
 #result[4,2]<-round(rsq, digits=4)
 result[4,2]<-NA
-
-
-
 ```
 
 #### 1.4.2 Cross validation
 
-Cross validation is already included in the trained model.
+Xgboost is a powerful algorithm but brings in the thread of overfitting. We already see by looking at the RMSE that the score is much higher for train than test data. Nevertheless the RMSE score in the last iteration is lower than the test scores for the other three models (lm, glmnet, rf).
+```{r cross validation xgboost}
+xgb_cv <- xgb.cv(objective='reg:linear',
+                  data=as.matrix(whole_data$train[, !'price', with=F]),
+                  label=whole_data$train$price,
+                  nrounds = 100, 
+                  nfold = 5)
+```
 
 
 #### 1.4.3 Test performance 
@@ -362,7 +363,7 @@ Since I cannot access the training predicitons it is not possible to draw a resi
 
 #### 1.4.5 Result overview
 
-Finally the results are calculated and saved in the result dataframe. The MAPE (our main perfomance measure in this case) lies at 0.13, which is even lower than the random forest model. Also for the two other parameter the results of the xgboost model are better.
+Finally the results are calculated and saved in the result dataframe. The MAPE (our main perfomance measure in this case) lies at 0.1276, which is even lower than the random forest model. Also for the two other parameter the results of the xgboost model are better. We actually see that the test RSME score is above out test RSME score from the cross validation. This shows us that the model is tending to overfit.
 
 ```{r xgboost results}
 result[4,3]<-round(rmse(real=whole_data$holdout$price, predicted = test_xgb), digits=0)
@@ -374,3 +375,410 @@ datatable(result)
 ### 1.5 Baseline conclusion
 
 Comparing the four models we see that the best baseline is achieved by using an boosting tree model (xgboost). Thus for feature engineering all features will be evaluated by using the xgboost model. In a final step hyperparameter tuning will be performed for xgboost.
+
+
+## 2. Feature engineering
+
+In the next step new features are created and the models performance is evaluated for each feature. All features that improve the baseline will be included in the final data set. Thus first of all a copy of our train and holdout data set is created as well as a result table that stores the performance measures for each feature engineering steps.
+
+```{r data set up fe}
+fe_results<-as.data.frame(result[4,c(1,3:5)])
+
+train_fe<-whole_data$train
+test_fe<-whole_data$holdout
+
+df_test_fe<-as.data.frame(test_fe$price)
+names(df_test_fe)[1]<-paste("price")
+```
+
+All new features are created with functions which makes it easier to apply them to all the data sets. The functions are saved in a separate notebook and loaded in the next step.
+
+```{r source loading fe}
+source('notebooks/feature_engineering.R')
+```
+
+### 2.1 Basement
+Since many of the houses have a basement size of zero, we can assume that all these houses do not have a zero. Thus a possibility is to replace the numerical variable sqft_basement with a boolean variable that indicates if the house has a basement or not. From a logical point of view it does not seem too important how big a basement is but rather if the house has a basement at all. Thus a new feature is created called basement and the old feature sqft_basement is excluded.
+
+```{r data set up basement}
+train_fe<-basement(train_fe)
+test_fe<-basement(test_fe)
+```
+
+The xgboost model in now trained with the new boolean variable basement but without the old variable sqft_basement.
+```{r basement feature, results=FALSE}
+xgb_basement<-xgboost(booster='gbtree',
+               data=as.matrix(train_fe[, !'price', with=F]),
+               label=train_fe$price,
+               nrounds = 100,
+               objective='reg:linear')
+
+test_xgb_basement<-predict(xgb_basement, newdata = as.matrix(test_fe[, !'price', with=F]), type='response')
+
+
+df_test_fe<-cbind(df_test_fe, test_xgb_basement)
+
+fe_results[2,1]<-"basement"
+fe_results[2,2]<-round(rmse(real=df_test_fe$price, predicted = df_test_fe$test_xgb_basement), digits=0)
+fe_results[2,3]<-round(mae(real=df_test_fe$price, predicted = test_xgb_basement), digits=0)
+fe_results[2,4]<-round(mape(real=df_test_fe$price, predicted = test_xgb_basement), digits=4)
+```
+
+```{r result basement}
+datatable(fe_results)
+
+```
+We see that the with including the boolean basement feature the RMSE and the MAE slightly improved while the MAPE actually worsened and is now above 0.13. Since the MAPE is our preferred metric for this case the basement variable will not be included.
+
+### 2.2 Rennovation
+Similiar to the basement feature, there are many houses that show a 0 for their renovation year meaning they have never been rennovated. However, for renovations time actually matters. We can assume that a renovation during the last ten years is more valuable than one that was 20 years ago. Thus a new boolean feature is created that flaggs all houses that were rennovated during the last ten years (since 2005).
+
+```{r data set up rennovated}
+train_fe<-whole_data$train
+test_fe<-whole_data$holdout
+
+train_fe<-renovated(train_fe)
+test_fe<-renovated(test_fe)
+```
+
+The xgboost model in now trained with the new boolean variable renovated but without the old variable yr_renovated.
+```{r rennovation feature, results=FALSE}
+xgb_renovated<-xgboost(booster='gbtree',
+               data=as.matrix(train_fe[, !'price', with=F]),
+               label=train_fe$price,
+               nrounds = 100,
+               objective='reg:linear')
+
+test_xgb_renovated<-predict(xgb_renovated, newdata = as.matrix(test_fe[, !'price', with=F]), type='response')
+
+
+df_test_fe<-cbind(df_test_fe, test_xgb_renovated)
+
+fe_results[3,1]<-"renovated"
+fe_results[3,2]<-round(rmse(real=df_test_fe$price, predicted = df_test_fe$test_xgb_renovated), digits=0)
+fe_results[3,3]<-round(mae(real=df_test_fe$price, predicted = df_test_fe$test_xgb_renovated), digits=0)
+fe_results[3,4]<-round(mape(real=df_test_fe$price, predicted = df_test_fe$test_xgb_renovated), digits=4)
+```
+
+```{r result rennovated}
+datatable(fe_results)
+```
+This feature shows worse values for all three performance measures and thus is not included in the model.
+
+### 2.3 Viewing
+In the data exploration the feature view showed a high skewness. Most houeses had not been viewed before the sale leaving many houses with zero views. Thus a possibility is to create a feature that shows if a house has been viewed or not and with this combining all the views from 1 to 4. A way to create such a boolean feature is to only include the encoded feature view_0 and excluding the feature view_1 to view_4.
+
+```{r data set up viewed}
+train_fe<-whole_data$train
+test_fe<-whole_data$holdout
+
+train_fe<-viewed(train_fe)
+test_fe<-viewed(test_fe)
+```
+
+The xgboost model in now trained excluding the variables view_1 to view_4
+```{r viewed feature, results=FALSE}
+xgb_viewed<-xgboost(booster='gbtree',
+               data=as.matrix(train_fe[, !'price', with=F]),
+               label=train_fe$price,
+               nrounds = 100,
+               objective='reg:linear')
+
+test_xgb_viewed<-predict(xgb_viewed, newdata = as.matrix(test_fe[, !'price', with=F]), type='response')
+
+
+df_test_fe<-cbind(df_test_fe, test_xgb_viewed)
+
+fe_results[4,1]<-"viewed"
+fe_results[4,2]<-round(rmse(real=df_test_fe$price, predicted = df_test_fe$test_xgb_viewed), digits=0)
+fe_results[4,3]<-round(mae(real=df_test_fe$price, predicted = df_test_fe$test_xgb_viewed), digits=0)
+fe_results[4,4]<-round(mape(real=df_test_fe$price, predicted = df_test_fe$test_xgb_viewed), digits=4)
+```
+
+```{r result viewed}
+datatable(fe_results)
+
+```
+Also this step worsens all three performance scores compared to the baseline.
+
+### 2.4 Sqft living comparison
+The variable sqft_living15 indicates the living size of the nearest 15 houses and thus is a good benchmark for the area around the actual house. Is the living size above this value then the house is comparably larger than the ones around and the other way around. Thus a new feature is created calculating the ratio between the living size of the house and its 15 nearest neighbors. A value below 1 means that the house is on average smaller compared to its neighbors while a value above 1 means is on average lager.
+
+```{r data set up living comparison}
+train_fe<-whole_data$train
+test_fe<-whole_data$holdout
+
+train_fe<-living_comp(train_fe)
+test_fe<-living_comp(test_fe)
+```
+
+The xgboost model in now trained inclduing the new ratio variable and excluding the variables sqft_living15.
+```{r sqft living comparison feature, results=FALSE}
+xgb_livcomp<-xgboost(booster='gbtree',
+               data=as.matrix(train_fe[, !'price', with=F]),
+               label=train_fe$price,
+               nrounds = 100,
+               objective='reg:linear')
+
+test_xgb_livcomp<-predict(xgb_livcomp, newdata = as.matrix(test_fe[, !'price', with=F]), type='response')
+
+
+df_test_fe<-cbind(df_test_fe, test_xgb_livcomp)
+
+fe_results[5,1]<-"living_comp"
+fe_results[5,2]<-round(rmse(real=df_test_fe$price, predicted = df_test_fe$test_xgb_livcomp), digits=0)
+fe_results[5,3]<-round(mae(real=df_test_fe$price, predicted = df_test_fe$test_xgb_livcomp), digits=0)
+fe_results[5,4]<-round(mape(real=df_test_fe$price, predicted = df_test_fe$test_xgb_livcomp), digits=4)
+```
+
+```{r result living comparison}
+datatable(fe_results)
+
+```
+Also this feature does not improve the performance measures and is thus not included in the model.
+
+### 2.5 Sqft lot comparison
+A similiar feature for the lot size is created as the one for living size in 2.4.
+
+```{r data set up lot comparison}
+train_fe<-whole_data$train
+test_fe<-whole_data$holdout
+
+train_fe<-lot_comp(train_fe)
+test_fe<-lot_comp(test_fe)
+```
+
+The xgboost model in now trained inclduing the new ratio variable and excluding the variables sqft_lot15.
+```{r sqft lot comparison feature, results=FALSE}
+xgb_lotcomp<-xgboost(booster='gbtree',
+               data=as.matrix(train_fe[, !'price', with=F]),
+               label=train_fe$price,
+               nrounds = 100,
+               objective='reg:linear')
+
+test_xgb_lotcomp<-predict(xgb_lotcomp, newdata = as.matrix(test_fe[, !'price', with=F]), type='response')
+
+
+df_test_fe<-cbind(df_test_fe, test_xgb_lotcomp)
+
+fe_results[6,1]<-"lot_comp"
+fe_results[6,2]<-round(rmse(real=df_test_fe$price, predicted = df_test_fe$test_xgb_lotcomp), digits=0)
+fe_results[6,3]<-round(mae(real=df_test_fe$price, predicted = df_test_fe$test_xgb_lotcomp), digits=0)
+fe_results[6,4]<-round(mape(real=df_test_fe$price, predicted = df_test_fe$test_xgb_lotcomp), digits=4)
+```
+
+```{r result lot comparison}
+datatable(fe_results)
+
+```
+Also this feature does not improve the performance measures and is thus not included in the model.
+
+### 2.6 Decade of building year
+As we have seen during the data exploration, the average prices of houses tended to drop depending if the house was build during mid 20th century. Thus instead of the building year a new feature is included that states the decade in which the house was built.
+
+```{r data set up decade}
+train_fe<-whole_data$train
+test_fe<-whole_data$holdout
+
+train_fe<-decade(train_fe)
+test_fe<-decade(test_fe)
+```
+
+The xgboost model in now trained inclduing the decade variable and excluding the variables yr_built.
+```{r decade feature, results=FALSE}
+xgb_decade<-xgboost(booster='gbtree',
+               data=as.matrix(train_fe[, !'price', with=F]),
+               label=train_fe$price,
+               nrounds = 100,
+               objective='reg:linear')
+
+test_xgb_decade<-predict(xgb_decade, newdata = as.matrix(test_fe[, !'price', with=F]), type='response')
+
+
+df_test_fe<-cbind(df_test_fe, test_xgb_decade)
+
+fe_results[7,1]<-"decade"
+fe_results[7,2]<-round(rmse(real=df_test_fe$price, predicted = df_test_fe$test_xgb_decade), digits=0)
+fe_results[7,3]<-round(mae(real=df_test_fe$price, predicted = df_test_fe$test_xgb_decade), digits=0)
+fe_results[7,4]<-round(mape(real=df_test_fe$price, predicted = df_test_fe$test_xgb_decade), digits=4)
+```
+
+```{r result decade}
+datatable(fe_results)
+```
+Also this feature does not improve the performance measures and is thus not included in the model.
+
+### 2.7 Low correlation features
+As we have seen in the correlation plot during the data exploration there are several features with low correlation to the target:
+* condition: corr = 0.04
+* sqft_lot15 : cor = 0.08
+
+Even though this cannot really be regarded as feature engineering but rather feature selection for the purpose of easy comparison this step is inlcuded under this section.
+
+```{r data set up low corr}
+train_fe<-whole_data$train
+test_fe<-whole_data$holdout
+
+train_fe<-low_correlation(train_fe)
+test_fe<-low_correlation(test_fe)
+```
+
+The xgboost model in now trained inclduing the decade variable and excluding the variables yr_built.
+```{r low correlation feature, results=FALSE}
+xgb_lowcorr<-xgboost(booster='gbtree',
+               data=as.matrix(train_fe[, !'price', with=F]),
+               label=train_fe$price,
+               nrounds = 100,
+               objective='reg:linear')
+
+test_xgb_lowcorr<-predict(xgb_lowcorr, newdata = as.matrix(test_fe[, !'price', with=F]), type='response')
+
+
+df_test_fe<-cbind(df_test_fe, test_xgb_lowcorr)
+
+fe_results[8,1]<-"low_correlation"
+fe_results[8,2]<-round(rmse(real=df_test_fe$price, predicted = df_test_fe$test_xgb_lowcorr), digits=0)
+fe_results[8,3]<-round(mae(real=df_test_fe$price, predicted = df_test_fe$test_xgb_lowcorr), digits=0)
+fe_results[8,4]<-round(mape(real=df_test_fe$price, predicted = df_test_fe$test_xgb_lowcorr), digits=4)
+```
+
+```{r result decade}
+datatable(fe_results)
+```
+Excluding low correlated features worsened the performance of our model. Thus all initial features are kept.
+
+### 2.8 Feature engineering conclusion
+As seen in the feature engineering result table above, none of the feature engineering steps helped to improve our model. Thus we will continue with out initial dataset.
+
+## 3. Hyperparameter tuning
+The last step before training the final model with all the labeled data is to do hyperparameter tuning. First of all we set up all needed data sets and results dataframes to start with the tuning.
+
+```{r data set up hyperparameter tuning}
+train_hyp<-whole_data$train
+test_hyp<-whole_data$holdout
+
+df_test_hyp<-as.data.frame(df_test_fe[,1])
+names(df_test_hyp)[1]<-paste("price")
+
+hyp_results<-fe_results[1,]
+```
+
+When we use an xgboost algorithm there are several hyperparameter that can be changed:
+*eta = learning rate [0 < eta < 1]
+*min_child_weight = minimum sum of weights of all observations required in a "child" - higher values prevent over-fitting, too hogh values have risk of under-fitting
+*max_depth = maximum depth of a tree - high depth can lead to overfitting
+*colsample_bytree = subsample ratio of columns when constructing each tree
+*gamma = specifies the minimum loss reduction required to make a split
+*subsample = denotes the fraction of observations to be randomly samples for each tree - lower values make the algorithm more conservative and prevents overfitting but too small values might lead to under-fitting.
+
+Except for subsample each of the other parameters has minimum two different values within the tuning grid. For each parameter the default value is included within the tuning grid. The tuning grid includes all possible combinations of the different parameter values.
+
+The best tune is then obtained by fitting the xgboost model with all different parameter combination of the tune grid using a 5 k-fold cross validation. The metric used to tune is the RSME due to the fact that MAPE is not a default metric for the hyperparameter tuning using caret.
+
+```{r hyperparameter tuning, results=FALSE}
+# 1. Define our grid of hyperparameters to tune
+tuneGrid <- expand.grid(nrounds = 100,
+                        eta = c(0.1,0.2,0.3),
+                        min_child_weight=c(1,3,5),
+                        max_depth = c(6,8,10),
+                        colsample_bytree = c(0.5, 0.8, 1),
+                        gamma = c(0,0.1),
+                        subsample=1)
+
+
+# 2. Define the validation squema
+ctrl <- trainControl(
+  method = "cv",
+  number = 5,
+  savePredictions=TRUE
+)
+
+# 3. Train the model
+ini<-now()
+set.seed(123)
+xgboostFit <- train(
+      formula,
+      data = train_hyp,
+      method = "xgbTree",
+      preProc = NULL, 
+      tuneGrid = tuneGrid,
+      trControl = ctrl,
+      metric = "RMSE"
+)
+print(now()-ini)
+
+# we save the train object
+saveRDS(xgboostFit,'data/xgboostFit_auto.RData')
+```
+
+The hyperparameter model is then saved and all the parameters from the best tune are used for the xgboost model. By looking at the prediction plot we still see that the model underperforms for more expensive houses.
+
+```{r hyperparameter model}
+params_hyp = list(eta=xgboostFit$bestTune$eta, max_depth=xgboostFit$bestTune$max_depth,gamma = xgboostFit$bestTune$gamma,subsample=1,colsample_bytree=xgboostFit$bestTune$colsample_bytree,min_child_weight=xgboostFit$bestTune$min_child_weight)
+
+xgb_hyp<-xgboost(booster='gbtree',
+                     data=as.matrix(train_hyp[, !'price', with=F]),
+                     label=train_hyp$price,
+                     nrounds = 100,
+                     params = params_hyp,
+                     objective='reg:linear'
+                    )
+
+test_xgb_hyp<-predict(xgb_hyp, newdata = as.matrix(test_hyp[, !'price', with=F]), type='response')
+
+df_test_hyp<-cbind(df_test_hyp, test_xgb_hyp)
+
+ggplot(df_test_hyp, aes(x=price,y=test_xgb_hyp))+
+      geom_point(alpha=0.5)+xlab('actual')+ylab('predictions')+
+      #+ylim(0,2000000)+xlim(0,2000000)
+      geom_abline(slope=1, intercept=0)+
+      ggtitle('XGBoost tuned - Test prediction')
+```
+
+```{r hyperparameter results}
+hyp_results[2,1]<-"hyp_tuning"
+hyp_results[2,2]<-round(rmse(real=df_test_hyp$price, predicted = df_test_hyp$test_xgb_hyp), digits=0)
+hyp_results[2,3]<-round(mae(real=df_test_hyp$price, predicted = df_test_hyp$test_xgb_hyp), digits=0)
+hyp_results[2,4]<-round(mape(real=df_test_hyp$price, predicted = df_test_hyp$test_xgb_hyp), digits=4)
+
+datatable(hyp_results)
+```
+Overall, we see that the hyperparameter tuning did not help us improve our model. Thus we will continue and construct our final model with the default xgboost model.
+
+## 4. Final model
+In order to construct the final model for our predicitons the model is retrained by using all the labeled test data. Thus the train and the holdout data set are combined again and then used to train the final xgboost model.
+
+```{r data set up final model}
+final_train_data <- rbind(whole_data$train, whole_data$holdout)
+final_test_data <- whole_data$test
+```
+
+The final xgboost model is trained with the complete labeled data set.
+```{r final xgboost, warning=FALSE, message=FALSE, results=FALSE}
+xgb_final<-xgboost(booster='gbtree',
+               data=as.matrix(final_train_data[, !'price', with=F]),
+               label=final_train_data$price,
+               nrounds = 100,
+               objective='reg:linear')
+
+```
+
+In order to monitor overfitting cross validation with 5 folds is performed. The test score lies above the train score which shows a sign of overfitting. Nevertheless such a behavior is normal and since the test score remains constant around an RMSE of 127,556 we can continue with this model.
+```{r cross validation final xgboost}
+xgb_final_cv <- xgb.cv(objective='reg:linear',
+                  data=as.matrix(final_train_data[, !'price', with=F]),
+                  label=final_train_data$price,
+                  nrounds = 100, 
+                  nfold = 5)
+```
+
+The model is now used the obtain the predictions for the blind test data set. The predictions are then saved together with the previous used house sale id in a csv file that can be found in the data folder.
+```{r final xgboost predictions}
+xgb_final_pred<-predict(xgb_final, newdata = as.matrix(final_test_data), type='response')
+
+predictions<-cbind(df_pred,xgb_final_pred)
+write.csv(predictions,'data/predictions.csv', row.names = FALSE)
+```
+
+## 5. Final remark
+I hope you enjoyed my project. There is always more to add, to tune, to try. However, I am quiete happy with the result and the fact that I accomplished to cover every step of the machine learning process (including hyperparameter tuning which I never really touched before). Now I hope my predicitons on the blind test data set are not too bad ;)

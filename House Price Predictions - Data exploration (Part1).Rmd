@@ -5,6 +5,8 @@ date: "26 May 2019"
 output: html_document
 ---
 
+This project can be found within the following GitHub repository [link](https://github.com/cutendorf/House-Prices-R).
+
 ## 0. Sources loading
 First all needed libraries are loaded. This includes data.table, DT and lubridate to work with datasets (that also include dates), ggplot2, ggthemes, GGally, grid, gridExtra, plotly, leaflet and corrplot for data exploration/visualization purposes and several other machine learning libraries used for modeling.
 
@@ -28,7 +30,10 @@ raw_test_data<-fread('data/house_price_test.csv', stringsAsFactors = F)
 
 ### 1.2 Data description
 Consequently the train data set includes 21 columns while the test data set has only 20 columns. While the train data has 17,277 house sales, the test data has 4,320 house sales. Both data sets actually come from a complete data set that can be found on Kaggle under following [link](https://www.kaggle.com/harlfoxem/housesalesprediction). However, this data set was probably then randomly splitted into train and test data using a 80:20 split and then for the test data set the prices were removed. Thus both data sets share the same 19 house features and each sale is identfied with a numeric id.
-Most of the features are directly related to the house properties such as number of bedrooms, squarefeet, waterfront, floors etc. In addition, we have information of the building year of the house and the lastest renovation (if there was any). There are also features that try to capture the overall condition of the house such as grade and condition. However, these two variables are likely to capture the same information and thus one might be redundant. Furthermore location data is provided as well as how often the place was visited. Overall, the dataset covers the most important house features that are also usually used on house sale websites.
+Most of the features are directly related to the house properties such as number of bedrooms, squarefeet, waterfront, floors etc. In addition, we have information of the building year of the house and the lastest renovation (if there was any). There are also features that try to capture the overall condition of the house such as grade and condition. However, these two variables are likely to capture the same information and thus one might be redundant. Furthermore location data is provided as well as how often the place was visited. There are two variables that are most likely related to the average lot size and also average living size of the 15 closest neighbors (there is no clear explaination what these two variables really mean but this explaination makes the most sense). Overall, the dataset covers the most important house features that are also usually used on house sale websites. From the following [link](https://www.slideshare.net/PawanShivhare1/predicting-king-county-house-prices) an overview and description of the variables was obtained.
+
+![](https://storage.googleapis.com/kaggle-forum-message-attachments/479761/11440/Screenshot%202019-02-27%20at%205.26.24%20PM.png)
+
 ```{r show data, warning=FALSE, message=FALSE}
 str(raw_train_data)
 str(raw_test_data)

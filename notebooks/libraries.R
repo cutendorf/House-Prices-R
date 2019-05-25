@@ -9,7 +9,7 @@ load_reqs <- function(reqs) {
   }
 }
 
-pkgs <- c("data.table", "lubridate", "DT", "ggplot2", "ggcorrplot", "ggthemes", "GGally", "grid", "gridExtra", "plotly", "leaflet", "corrplot", "plotmo","MASS","glmnet", "caret", "car", "ranger", "xgboost", "spm")
+pkgs <- c("png", "data.table", "lubridate", "DT", "ggplot2", "ggcorrplot", "ggthemes", "GGally", "grid", "gridExtra", "plotly", "leaflet", "corrplot", "plotmo","MASS","glmnet", "caret", "car", "ranger", "xgboost", "spm")
 
 load_reqs(pkgs)
 
@@ -17,6 +17,7 @@ load_reqs(pkgs)
 #library(data.table)
 #library(lubridate)
 #library(DT)
+#library(png)
 
 ### plotting libraries
 #library(ggplot2)
