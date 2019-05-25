@@ -1,7 +1,7 @@
 ---
 title: "House Price Predictions - Predicitive Model (Part2)"
 author: "Christine Utendorf"
-date: "23 May 2019"
+date: "26 May 2019"
 output: html_document
 ---
 
@@ -71,7 +71,7 @@ whole_data$holdout$date = NULL
 
 formula<-as.formula(price~.)
 
-result<-data.table(method=c('lm','glmnet','tree','rf','xgb','xgb_reg'),R2cv=0, RMSE=0, MAE=0,MAPE=0)
+result<-data.table(method=c('lm','glmnet','rf','xgb'),R2cv=0, RMSE=0, MAE=0,MAPE=0)
 ```
 
 
@@ -154,10 +154,10 @@ datatable(result)
 
 
 ### 1.2 Linear regression model with regularization (Lasso)
-ABC
+The next model in line is a linear regression model with regularization. In this case we use a lasso regression which is a shrinkage and variable selection method for linear regressions. The objective of this method is to obtain a subset of features that minimizes the prediction error for the target variable.
 
 #### 1.2.1 Trained linear model with regularization
-The trained linear model with regularization results in an adjusted R2 of ABC with many significant variables.
+The first step is to find lambda, which is a numeric valuedefining the amount of shrinkage. The best value for lambda is the one that minimzes the cv-preciction error rate. To do so cv.glmnet is used from the glmnet library.
 
 ```{r glmnet cv, warning=FALSE, message=FALSE}
 glmnet_cv<-cv.glmnet(x = data.matrix(whole_data$train[, !'price']),
@@ -170,6 +170,8 @@ plot.cv.glmnet(glmnet_cv)
 
 glmnet_cv$lambda.min
 ```
+
+In order to compute now the lasso regression lambda.min is used as shrinkage parameter. We obtain a R2 score of 0.817 which is slightly better than the one for the simple linear regression.
 
 ```{r glmnet , warning=FALSE, message=FALSE}
 glmnet_0<-glmnet(x = data.matrix(whole_data$train[, !'price']), 
@@ -184,16 +186,11 @@ result[2,2]<-as.numeric(glmnet_0$dev.ratio)
 
 #### 1.2.2 Cross validation
 
-????
-
-```{r glmnet CV, warning=FALSE, message=FALSE}
-set.seed(123) 
-train.control <- trainControl(method = "cv", number = 5)
-```
+There is no cross validation performed here since the minimum lambda was already obtain by using cross-validation.
 
 #### 1.2.3 Test performance 
 
-
+The next step is to make predictions for our holdout data set. Here we see a similar prediction behavior to the former model. For lower priced houses the model predict much better than for more expensive ones (+2 mio).
 
 ```{r glmnet test, warning=FALSE, message=FALSE}
 test_glmnet<-predict(glmnet_0, newx = as.matrix(whole_data$holdout[, !'price']))
@@ -212,7 +209,7 @@ ggplot(df_test, aes(x=price,y=test_glmnet))+
 
 #### 1.2.4 Residuals
 
-Looking at the residuals supports our findings from the previous two plots. Thus this model would definetly need further improvement.
+Looking at the residuals supports our findings from the previous two plots eventhough it seems like the residuals are overall closer to zero than in the linear model. Nevertheless this model would definetly need further improvement.
 To plot the residuals the plotmo library was used. 
 
 ```{r glmnet test residuals}
@@ -221,11 +218,84 @@ plotres(glmnet_0, which=3)
 
 #### 1.2.5 Result overview
 
-Finally the results are calculated and saved in the result dataframe. The MAPE (our main perfomance measure in this case) lies at 0.19.
+Finally the results are calculated and saved in the result dataframe. The MAPE (our main perfomance measure in this case) lies around 0.19 as well - slightly below (=better) the result of the simple linear regression.
 
 ```{r glmnet results}
 result[2,3]<-as.numeric(rmse(real=whole_data$holdout$price, predicted = test_glmnet))
 result[2,4]<-as.numeric(mae(real=whole_data$holdout$price, predicted = test_glmnet))
 result[2,5]<-as.numeric(mape(real=whole_data$holdout$price, predicted = test_glmnet))
+datatable(result)
+```
+
+
+### 1.3 Random forest model
+The next model in line is random forest. In order to work with random forest, the ranger library is used. Random forest operates by constructing many decision trees and then taking the mean prediciton of all individual trees.
+
+
+#### 1.3.1 Trained random forest model
+The trained random forest model constructed 500 trees and used 105 independent variables. The R2 score lies at 0.854 which is higher than the two previous models.
+
+```{r random forest, warning=FALSE, message=FALSE}
+rf<-ranger(formula, whole_data$train)
+
+summary(rf)
+
+result[3,2]<-as.numeric(rf$r.squared)
+```
+
+#### 1.3.2 Cross validation
+
+Due to time constraints no cross validation is applied for this model at this point.
+
+```{r random forest CV, warning=FALSE, message=FALSE}
+#set.seed(123) 
+#rf_cv <- rgcv(whole_data$train[, !'price'], whole_data$train$price, cv.fold = 5)
+#rf_cv1
+```
+
+#### 1.3.3 Test performance 
+
+The next step is to check how good the model prediciton for the holdout are. Overall we see that the predicted values and actual values are closer together than for the previous two models. However, the model has still problems to predict expensive houses accurately.
+
+```{r random forest test, warning=FALSE, message=FALSE}
+test_rf<-predict(rf,whole_data$holdout)$predictions
+
+df_test<-cbind(df_test, test_rf)
+
+
+ggplot(df_test, aes(x=price,y=test_rf))+
+      geom_point(alpha=0.5)+xlab('actual')+ylab('predictions')+
+      #+ylim(0,2000000)+xlim(0,2000000)
+      geom_abline(slope=1, intercept=0)+
+      ggtitle('Random Forest - Test prediction')
+```
+
+
+#### 1.3.4 Residuals
+
+Also by looking at the residuals we see again that the model performs better in the lower price region than in the high price region.
+
+```{r random forest test residuals}
+rf_residuals <- df_test$price - df_test$test_rf
+
+residual_plot<-as.data.frame(df_test$price)
+residual_plot<-cbind(residual_plot,rf_residuals)
+
+ggplot(residual_plot, aes(x=df_test$price, rf_residuals)) +
+    geom_point(shape=1) +
+    geom_smooth()+
+    theme_minimal()+
+    ylab('Residuals')+
+    xlab('Fitted values')
+```
+
+#### 1.3.5 Result overview
+
+Finally the results are calculated and saved in the result dataframe. The MAPE (our main perfomance measure in this case) lies at 0.14, which is significantly lower than the two linear models. Also by looking at the other three performance measures we see that the random forest model outperforms the other two models.
+
+```{r random forest results}
+result[3,3]<-as.numeric(rmse(real=whole_data$holdout$price, predicted = test_rf))
+result[3,4]<-as.numeric(mae(real=whole_data$holdout$price, predicted = test_rf))
+result[3,5]<-as.numeric(mape(real=whole_data$holdout$price, predicted = test_rf))
 datatable(result)
 ```

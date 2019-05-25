@@ -9,7 +9,7 @@ load_reqs <- function(reqs) {
   }
 }
 
-pkgs <- c("data.table", "lubridate", "DT", "ggplot2", "ggcorrplot", "ggthemes", "GGally", "grid", "gridExtra", "plotly", "leaflet", "corrplot", "plotmo","MASS","glmnet", "caret", "car", "ranger")
+pkgs <- c("data.table", "lubridate", "DT", "ggplot2", "ggcorrplot", "ggthemes", "GGally", "grid", "gridExtra", "plotly", "leaflet", "corrplot", "plotmo","MASS","glmnet", "caret", "car", "ranger", "xgboost", "spm")
 
 load_reqs(pkgs)
 
@@ -40,3 +40,5 @@ theme_set(theme_minimal(base_size = 16))
 #library(caret)
 #library(car)
 #library(ranger)
+#library(spm)
+#lirbary(xgboost)
