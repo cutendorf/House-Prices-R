@@ -302,8 +302,8 @@ datatable(result)
 The last baseline model is a tree based xgboost model. 
 
 
-#### 1.4.1 Trained random forest model
-The model uses cross validation with 5 folds. Since R2 is not a default parameter for xgboost but only RMSE it was not possible to construct it from the model. I tried to access the training predictions of the model but I did not manage to find it. We can not use the model to predict on the train data and then use these predicitons because the model was trained on it. The R2 result would lie around 0.96 (I tried it). Thus for now the R2 will remain empty.
+#### 1.4.1 Trained xgboost model
+Since R2 is not a default parameter for xgboost but only RMSE it was not possible to construct it from the model. I tried to access the training predictions of the model but I did not manage to find it. We can not use the model to predict on the train data and then use these predicitons because the model was trained on it. The R2 result would lie around 0.96 (I tried it). Thus for now the R2 will remain empty.
 
 ```{r xgboost, warning=FALSE, message=FALSE, results=FALSE}
 xgb<-xgboost(booster='gbtree',
@@ -326,7 +326,7 @@ result[4,2]<-NA
 
 #### 1.4.2 Cross validation
 
-Xgboost is a powerful algorithm but brings in the thread of overfitting. We already see by looking at the RMSE that the score is much higher for train than test data. Nevertheless the RMSE score in the last iteration is lower than the test scores for the other three models (lm, glmnet, rf).
+Xgboost is a powerful algorithm but brings in the thread of overfitting. We already see by looking at the RMSE that the score is much higher for train than test data. Nevertheless the RMSE score for the test set in the last iteration is lower than the test scores for the other three models (lm, glmnet, rf).
 ```{r cross validation xgboost}
 xgb_cv <- xgb.cv(objective='reg:linear',
                   data=as.matrix(whole_data$train[, !'price', with=F]),
@@ -426,7 +426,7 @@ fe_results[2,4]<-round(mape(real=df_test_fe$price, predicted = test_xgb_basement
 datatable(fe_results)
 
 ```
-We see that the with including the boolean basement feature the RMSE and the MAE slightly improved while the MAPE actually worsened and is now above 0.13. Since the MAPE is our preferred metric for this case the basement variable will not be included.
+All the three performance measures slightly improved, thus we will include the new basement feature in our model.
 
 ### 2.2 Rennovation
 Similiar to the basement feature, there are many houses that show a 0 for their renovation year meaning they have never been rennovated. However, for renovations time actually matters. We can assume that a renovation during the last ten years is more valuable than one that was 20 years ago. Thus a new boolean feature is created that flaggs all houses that were rennovated during the last ten years (since 2005).
@@ -461,7 +461,7 @@ fe_results[3,4]<-round(mape(real=df_test_fe$price, predicted = df_test_fe$test_x
 ```{r result rennovated}
 datatable(fe_results)
 ```
-This feature shows worse values for all three performance measures and thus is not included in the model.
+This feature only improves the MAE a bit while RMSE and MAPE worsen. Thus this feature will not be included.
 
 ### 2.3 Viewing
 In the data exploration the feature view showed a high skewness. Most houeses had not been viewed before the sale leaving many houses with zero views. Thus a possibility is to create a feature that shows if a house has been viewed or not and with this combining all the views from 1 to 4. A way to create such a boolean feature is to only include the encoded feature view_0 and excluding the feature view_1 to view_4.
@@ -497,7 +497,7 @@ fe_results[4,4]<-round(mape(real=df_test_fe$price, predicted = df_test_fe$test_x
 datatable(fe_results)
 
 ```
-Also this step worsens all three performance scores compared to the baseline.
+This step worsens all three performance scores compared to the baseline.
 
 ### 2.4 Sqft living comparison
 The variable sqft_living15 indicates the living size of the nearest 15 houses and thus is a good benchmark for the area around the actual house. Is the living size above this value then the house is comparably larger than the ones around and the other way around. Thus a new feature is created calculating the ratio between the living size of the house and its 15 nearest neighbors. A value below 1 means that the house is on average smaller compared to its neighbors while a value above 1 means is on average lager.
@@ -569,8 +569,8 @@ fe_results[6,4]<-round(mape(real=df_test_fe$price, predicted = df_test_fe$test_x
 datatable(fe_results)
 
 ```
-Also this feature does not improve the performance measures and is thus not included in the model.
-
+Also this feature does not improve the performance measures and is thus not included in the model. For both ratios it was also tested to not exclude the old variable but just add the ratio to the data set. The results did not improve.
+ 
 ### 2.6 Decade of building year
 As we have seen during the data exploration, the average prices of houses tended to drop depending if the house was build during mid 20th century. Thus instead of the building year a new feature is included that states the decade in which the house was built.
 
@@ -604,10 +604,11 @@ fe_results[7,4]<-round(mape(real=df_test_fe$price, predicted = df_test_fe$test_x
 ```{r result decade}
 datatable(fe_results)
 ```
-Also this feature does not improve the performance measures and is thus not included in the model.
+Only MAE improved slightly with this feature. However, the new feature is not inlcuded in the model.
 
 ### 2.7 Low correlation features
 As we have seen in the correlation plot during the data exploration there are several features with low correlation to the target:
+
 * condition: corr = 0.04
 * sqft_lot15 : cor = 0.08
 
@@ -646,34 +647,35 @@ datatable(fe_results)
 Excluding low correlated features worsened the performance of our model. Thus all initial features are kept.
 
 ### 2.8 Feature engineering conclusion
-As seen in the feature engineering result table above, none of the feature engineering steps helped to improve our model. Thus we will continue with out initial dataset.
+As seen in the feature engineering result table above, only the basement feature improved the score and will be the only new feature for the dataset.
 
 ## 3. Hyperparameter tuning
 The last step before training the final model with all the labeled data is to do hyperparameter tuning. First of all we set up all needed data sets and results dataframes to start with the tuning.
 
 ```{r data set up hyperparameter tuning}
-train_hyp<-whole_data$train
-test_hyp<-whole_data$holdout
+train_hyp<-basement(whole_data$train)
+test_hyp<-basement(whole_data$holdout)
 
 df_test_hyp<-as.data.frame(df_test_fe[,1])
 names(df_test_hyp)[1]<-paste("price")
 
-hyp_results<-fe_results[1,]
+hyp_results<-fe_results[1:2,]
 ```
 
 When we use an xgboost algorithm there are several hyperparameter that can be changed:
-*eta = learning rate [0 < eta < 1]
-*min_child_weight = minimum sum of weights of all observations required in a "child" - higher values prevent over-fitting, too hogh values have risk of under-fitting
-*max_depth = maximum depth of a tree - high depth can lead to overfitting
-*colsample_bytree = subsample ratio of columns when constructing each tree
-*gamma = specifies the minimum loss reduction required to make a split
-*subsample = denotes the fraction of observations to be randomly samples for each tree - lower values make the algorithm more conservative and prevents overfitting but too small values might lead to under-fitting.
+
+* eta = learning rate [0 < eta < 1]
+* min_child_weight = minimum sum of weights of all observations required in a "child" - higher values prevent over-fitting, too hogh values have risk of under-fitting
+* max_depth = maximum depth of a tree - high depth can lead to overfitting
+* colsample_bytree = subsample ratio of columns when constructing each tree
+* gamma = specifies the minimum loss reduction required to make a split
+* subsample = denotes the fraction of observations to be randomly samples for each tree - lower values make the algorithm more conservative and prevents overfitting but too small values might lead to under-fitting.
 
 Except for subsample each of the other parameters has minimum two different values within the tuning grid. For each parameter the default value is included within the tuning grid. The tuning grid includes all possible combinations of the different parameter values.
 
 The best tune is then obtained by fitting the xgboost model with all different parameter combination of the tune grid using a 5 k-fold cross validation. The metric used to tune is the RSME due to the fact that MAPE is not a default metric for the hyperparameter tuning using caret.
 
-```{r hyperparameter tuning, results=FALSE}
+```{r hyperparameter tuning}
 # 1. Define our grid of hyperparameters to tune
 tuneGrid <- expand.grid(nrounds = 100,
                         eta = c(0.1,0.2,0.3),
@@ -711,7 +713,7 @@ saveRDS(xgboostFit,'data/xgboostFit_auto.RData')
 
 The hyperparameter model is then saved and all the parameters from the best tune are used for the xgboost model. By looking at the prediction plot we still see that the model underperforms for more expensive houses.
 
-```{r hyperparameter model}
+```{r hyperparameter model, results=FALSE}
 params_hyp = list(eta=xgboostFit$bestTune$eta, max_depth=xgboostFit$bestTune$max_depth,gamma = xgboostFit$bestTune$gamma,subsample=1,colsample_bytree=xgboostFit$bestTune$colsample_bytree,min_child_weight=xgboostFit$bestTune$min_child_weight)
 
 xgb_hyp<-xgboost(booster='gbtree',
@@ -734,21 +736,21 @@ ggplot(df_test_hyp, aes(x=price,y=test_xgb_hyp))+
 ```
 
 ```{r hyperparameter results}
-hyp_results[2,1]<-"hyp_tuning"
-hyp_results[2,2]<-round(rmse(real=df_test_hyp$price, predicted = df_test_hyp$test_xgb_hyp), digits=0)
-hyp_results[2,3]<-round(mae(real=df_test_hyp$price, predicted = df_test_hyp$test_xgb_hyp), digits=0)
-hyp_results[2,4]<-round(mape(real=df_test_hyp$price, predicted = df_test_hyp$test_xgb_hyp), digits=4)
+hyp_results[3,1]<-"hyp_tuning"
+hyp_results[3,2]<-round(rmse(real=df_test_hyp$price, predicted = df_test_hyp$test_xgb_hyp), digits=0)
+hyp_results[3,3]<-round(mae(real=df_test_hyp$price, predicted = df_test_hyp$test_xgb_hyp), digits=0)
+hyp_results[3,4]<-round(mape(real=df_test_hyp$price, predicted = df_test_hyp$test_xgb_hyp), digits=4)
 
 datatable(hyp_results)
 ```
-Overall, we see that the hyperparameter tuning did not help us improve our model. Thus we will continue and construct our final model with the default xgboost model.
+Eventhough hyperparameter tuning improved RMSE and MAE the MAPE worsened. A reason could be that the model now performs even better in the low price region but still poorly for more expensive houses. This seems also to be the case when looking at the test prediction plot. Since our main measure is the MAPE, the final model will be constructed using the default xgboost parameters.
 
 ## 4. Final model
-In order to construct the final model for our predicitons the model is retrained by using all the labeled test data. Thus the train and the holdout data set are combined again and then used to train the final xgboost model.
+In order to construct the final model for our predicitons the model is retrained by using all the labeled test data. Thus the train and the holdout data set are combined again and then used to train the final xgboost model. The only adaption to the data set is the new basement feature and excluding the old feature of basement size.
 
 ```{r data set up final model}
-final_train_data <- rbind(whole_data$train, whole_data$holdout)
-final_test_data <- whole_data$test
+final_train_data <- rbind(basement(whole_data$train), basement(whole_data$holdout))
+final_test_data <- basement(whole_data$test)
 ```
 
 The final xgboost model is trained with the complete labeled data set.
